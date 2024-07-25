@@ -15,6 +15,10 @@ keywords = ["plugins", "adapters", "ioc", "di", "dependency", "injection"]
 
 package-mode = true
 
+homepage = "https://github.com/igoras1993/plug-in"
+repository = "https://github.com/igoras1993/plug-in"
+documentation = "https://github.com/igoras1993/plug-in"
+
 [tool.poetry.dependencies]
 python = "^3.12"
 
