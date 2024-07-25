@@ -1,0 +1,41 @@
+repos:
+  -   repo: https://github.com/pre-commit/pre-commit-hooks
+      rev: v4.5.0
+      hooks:
+        - id: trailing-whitespace
+        - id: end-of-file-fixer
+        - id: check-yaml
+          stages: [pre-commit]
+        - id: check-toml
+          stages: [pre-commit]
+  -   repo: local
+      hooks:
+        - id: black
+          name: Black
+          entry: poetry run black --check
+          language: system
+          types: [python]
+          stages: [pre-commit]
+          require_serial: true
+        - id: pyright
+          name: Pyright
+          entry: poetry run pyright
+          language: system
+          types: [python]
+          stages: [pre-commit]
+          require_serial: true
+        - id: conventional-pre-commit
+          name: Conventional Commit (local)
+          entry: poetry run conventional-pre-commit
+          args: []
+          language: system
+          stages: [commit-msg]
+          require_serial: true
+        - id: flake8
+          name: Code Style (flake8)
+          entry: poetry run flake8
+          args: []
+          language: system
+          types: [python]
+          stages: [pre-commit]
+          require_serial: true

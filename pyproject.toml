@@ -1,0 +1,36 @@
+[tool.poetry]
+name = "plug-in"
+version = "0.1.0"
+description = "Pythonic inversion of control targeting plugins and adapters application development style"
+authors = ["kuta.0 <igor.kantorski@gmail.com>"]
+license = "BSD-3-Clause"
+readme = "README.md"
+classifiers = [
+    "Development Status :: 1 - Planning",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries",
+    "Typing :: Typed",
+]
+keywords = ["plugins", "adapters", "ioc", "di", "dependency", "injection"]
+
+package-mode = true
+
+[tool.poetry.dependencies]
+python = "^3.12"
+
+
+[tool.poetry.group.dev.dependencies]
+black = "^24.4.2"
+pyright = "^1.1.373"
+flake8 = "^7.1.0"
+pre-commit = "^3.7.1"
+conventional-pre-commit = "^3.3.0"
+
+
+[tool.poetry.group.test.dependencies]
+pytest = "^8.3.2"
+pytest-asyncio = "^0.23.8"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
