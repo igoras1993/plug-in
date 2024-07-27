@@ -19,8 +19,11 @@ class CorePluginProtocol[JointType: Joint](Protocol):
 class BindingCorePluginProtocol[JointType: Joint](
     CorePluginProtocol[JointType], Protocol
 ):
-    plug: CorePlugProtocol[JointType]
-    host: CoreHostProtocol[JointType]
+    @property
+    def plug(self) -> CorePlugProtocol[JointType]: ...
+
+    @property
+    def host(self) -> CoreHostProtocol[JointType]: ...
 
 
 # TODO: Consider allowing for passing host data into
@@ -28,5 +31,8 @@ class BindingCorePluginProtocol[JointType: Joint](
 class ProvidingCorePluginProtocol[JointType: Joint](
     CorePluginProtocol[JointType], Protocol
 ):
-    plug: CorePlugProtocol[Callable[[], JointType]]
-    host: CoreHostProtocol[JointType]
+    @property
+    def plug(self) -> CorePlugProtocol[Callable[[], JointType]]: ...
+
+    @property
+    def host(self) -> CoreHostProtocol[JointType]: ...

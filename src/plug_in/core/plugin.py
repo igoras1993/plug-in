@@ -15,9 +15,21 @@ from plug_in.proto.joint import Joint
 
 @dataclass(frozen=True)
 class DirectCorePlugin[JointType: Joint](BindingCorePluginProtocol[JointType]):
-    plug: CorePlug[JointType]
-    host: CoreHost[JointType]
-    policy: Literal[PluginPolicy.DIRECT] = PluginPolicy.DIRECT
+    _plug: CorePlug[JointType]
+    _host: CoreHost[JointType]
+    _policy: Literal[PluginPolicy.DIRECT] = PluginPolicy.DIRECT
+
+    @property
+    def plug(self) -> CorePlug[JointType]:
+        return self._plug
+
+    @property
+    def host(self) -> CoreHost[JointType]:
+        return self._host
+
+    @property
+    def policy(self) -> Literal[PluginPolicy.DIRECT]:
+        return self._policy
 
     def provide(self) -> JointType:
         return self.plug.provider
@@ -25,9 +37,17 @@ class DirectCorePlugin[JointType: Joint](BindingCorePluginProtocol[JointType]):
 
 @dataclass(frozen=True)
 class LazyCorePlugin[JointType: Joint](ProvidingCorePluginProtocol[JointType]):
-    plug: CorePlug[Callable[[], JointType]]
-    host: CoreHost[JointType]
-    policy: Literal[PluginPolicy.LAZY] = PluginPolicy.LAZY
+    _plug: CorePlug[Callable[[], JointType]]
+    _host: CoreHost[JointType]
+    _policy: Literal[PluginPolicy.LAZY] = PluginPolicy.LAZY
+
+    @property
+    def plug(self) -> CorePlug[Callable[[], JointType]]:
+        return self._plug
+
+    @property
+    def host(self) -> CoreHost[JointType]:
+        return self._host
 
     def provide(self) -> JointType:
         with threading.Lock():
@@ -42,9 +62,17 @@ class LazyCorePlugin[JointType: Joint](ProvidingCorePluginProtocol[JointType]):
 
 @dataclass(frozen=True)
 class FactoryCorePlugin[JointType: Joint](ProvidingCorePluginProtocol[JointType]):
-    plug: CorePlug[Callable[[], JointType]]
-    host: CoreHost[JointType]
-    policy: Literal[PluginPolicy.FACTORY] = PluginPolicy.FACTORY
+    _plug: CorePlug[Callable[[], JointType]]
+    _host: CoreHost[JointType]
+    _policy: Literal[PluginPolicy.FACTORY] = PluginPolicy.FACTORY
+
+    @property
+    def plug(self) -> CorePlug[Callable[[], JointType]]:
+        return self._plug
+
+    @property
+    def host(self) -> CoreHost[JointType]:
+        return self._host
 
     def provide(self) -> JointType:
         return self.plug.provider()
@@ -94,22 +122,22 @@ def create_core_plugin[
     match policy:
         case PluginPolicy.DIRECT:
             return DirectCorePlugin(
-                plug=cast(CorePlug[JointType], plug),
-                host=host,
-                policy=policy,
+                _plug=cast(CorePlug[JointType], plug),
+                _host=host,
+                _policy=policy,
             )
 
         case PluginPolicy.LAZY:
             return LazyCorePlugin(
-                plug=cast(CorePlug[Callable[[], JointType]], plug),
-                host=host,
-                policy=policy,
+                _plug=cast(CorePlug[Callable[[], JointType]], plug),
+                _host=host,
+                _policy=policy,
             )
         case PluginPolicy.FACTORY:
             return FactoryCorePlugin(
-                plug=cast(CorePlug[Callable[[], JointType]], plug),
-                host=host,
-                policy=policy,
+                _plug=cast(CorePlug[Callable[[], JointType]], plug),
+                _host=host,
+                _policy=policy,
             )
         case _:
             raise RuntimeError(f"Unsupported plugin policy: {policy}")
