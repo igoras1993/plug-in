@@ -29,7 +29,7 @@ class CoreRegistry(CoreRegistryProtocol):
             self._hash_to_plugin_map: dict[
                 int,
                 DirectCorePlugin[Any] | LazyCorePlugin[Any] | FactoryCorePlugin[Any],
-            ]
+            ] = {}
 
             for plugin in plugins:
                 host_hash = hash(plugin.host)
