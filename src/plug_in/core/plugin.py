@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import threading
 from typing import Callable, Literal, cast, overload
 
 from plug_in.core.enum import PluginPolicy
@@ -29,12 +30,14 @@ class LazyCorePlugin[JointType: Joint](ProvidingCorePluginProtocol[JointType]):
     policy: Literal[PluginPolicy.LAZY] = PluginPolicy.LAZY
 
     def provide(self) -> JointType:
-        try:
-            return getattr(self, "_provided")
-        except AttributeError:
-            _provided = self.plug.provider()
-            setattr(self, "_provided", _provided)
-            return _provided
+        with threading.Lock():
+            try:
+                return getattr(self, "_provided")
+            except AttributeError:
+                _provided = self.plug.provider()
+                object.__setattr__(self, "_provided", _provided)
+
+        return _provided
 
 
 @dataclass(frozen=True)
