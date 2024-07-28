@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
-from plug_in.proto.core_plug import CorePlugProtocol
-from plug_in.proto.pluggable import Pluggable
+from plug_in.types.proto.core_plug import CorePlugProtocol
+from plug_in.types.proto.pluggable import Pluggable
 
 
 @dataclass(frozen=True)

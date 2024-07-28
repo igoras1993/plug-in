@@ -1,9 +1,9 @@
 from abc import abstractmethod
 from typing import Callable, Protocol
 
-from plug_in.proto.core_host import CoreHostProtocol
-from plug_in.proto.core_plug import CorePlugProtocol
-from plug_in.proto.joint import Joint
+from plug_in.types.proto.core_host import CoreHostProtocol
+from plug_in.types.proto.core_plug import CorePlugProtocol
+from plug_in.types.proto.joint import Joint
 
 
 class CorePluginProtocol[JointType: Joint](Protocol):

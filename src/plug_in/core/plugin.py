@@ -5,12 +5,12 @@ from typing import Callable, Literal, cast, overload
 from plug_in.core.enum import PluginPolicy
 from plug_in.core.plug import CorePlug
 from plug_in.core.host import CoreHost
-from plug_in.proto.core_plugin import (
+from plug_in.types.proto.core_plugin import (
     BindingCorePluginProtocol,
     ProvidingCorePluginProtocol,
 )
 
-from plug_in.proto.joint import Joint
+from plug_in.types.proto.joint import Joint
 
 
 @dataclass(frozen=True)

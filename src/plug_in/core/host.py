@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import Hashable
-from plug_in.proto.core_host import CoreHostProtocol
+from plug_in.types.proto.core_host import CoreHostProtocol
 
 
 @dataclass(frozen=True)
