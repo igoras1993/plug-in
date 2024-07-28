@@ -3,9 +3,9 @@ from typing import Any, Iterable
 
 from plug_in.core.plugin import DirectCorePlugin, FactoryCorePlugin, LazyCorePlugin
 from plug_in.exc import AmbiguousHostError, MissingPluginError
-from plug_in.proto.core_host import CoreHostProtocol
-from plug_in.proto.core_registry import CoreRegistryProtocol
-from plug_in.proto.joint import Joint
+from plug_in.types.proto.core_host import CoreHostProtocol
+from plug_in.types.proto.core_registry import CoreRegistryProtocol
+from plug_in.types.proto.joint import Joint
 
 
 # TODO: This class has potential to utilize TypeVarTuple, but only if

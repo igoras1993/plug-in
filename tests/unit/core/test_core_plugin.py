@@ -4,7 +4,7 @@ from plug_in.core.enum import PluginPolicy
 from plug_in.core.host import CoreHost
 from plug_in.core.plug import CorePlug
 from plug_in.core.plugin import create_core_plugin
-from plug_in.proto.core_plugin import CorePluginProtocol
+from plug_in.types.proto.core_plugin import CorePluginProtocol
 
 
 @pytest.mark.parametrize(
