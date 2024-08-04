@@ -1,8 +1,9 @@
 from functools import partial, wraps
-from typing import Callable, cast
-from plug_in.exc import MissingMountError, RouterAlreadyMountedError
+from typing import Any, Callable, cast
+from plug_in.exc import MissingMountError, MissingRouteError, RouterAlreadyMountedError
 from plug_in.types.proto.core_host import CoreHostProtocol
 from plug_in.types.proto.core_registry import CoreRegistryProtocol
+from plug_in.types.proto.resolver import ParameterResolverProtocol
 from plug_in.types.proto.router import RouterProtocol
 from plug_in.types.proto.joint import Joint
 from plug_in.types.alias import Manageable
@@ -13,7 +14,7 @@ class Router(RouterProtocol):
 
     def __init__(self) -> None:
         self._reg: CoreRegistryProtocol | None = None
-        self._routes: dict[Callable, ParameterResolver] = {}
+        self._routes = {}
 
     def mount(self, registry: CoreRegistryProtocol) -> None:
         """
@@ -92,8 +93,7 @@ class Router(RouterProtocol):
             resolve_callback=self._resolve_factory,
         )
 
-        # TODO: Save routes
-        # self._routes[callable] = param_resolver
+        self._routes[callable] = param_resolver
 
         # Create wrapper for callable
         @wraps(callable)
@@ -126,3 +126,21 @@ class Router(RouterProtocol):
 
         """
         return cast(Callable[[T], T], self._callable_route_factory)
+
+    def get_route_resolver[
+        **CallParams
+    ](self, callable: Callable[CallParams, Any]) -> ParameterResolverProtocol[
+        CallParams
+    ]:
+        """
+        Return resolver for given callable.
+
+        Raises:
+            [.MissingRouteError][]: If callable is not managed by this router
+        """
+        try:
+            return self._routes[callable]
+        except KeyError as e:
+            raise MissingRouteError(
+                f"Route for {callable=} is not managed by this router"
+            ) from e

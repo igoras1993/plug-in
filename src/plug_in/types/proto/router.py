@@ -1,10 +1,11 @@
 from abc import abstractmethod
-from typing import Callable, Protocol
+from typing import Any, Callable, Protocol
 
 from plug_in.types.proto.core_host import CoreHostProtocol
 from plug_in.types.proto.core_registry import CoreRegistryProtocol
 from plug_in.types.proto.joint import Joint
 from plug_in.types.alias import Manageable
+from plug_in.types.proto.resolver import ParameterResolverProtocol
 
 
 class RouterProtocol(Protocol):
@@ -50,3 +51,10 @@ class RouterProtocol(Protocol):
         """
         Decorator factory for marking a callable as managed
         """
+
+    @abstractmethod
+    def get_route_resolver[
+        **CallParams
+    ](self, callable: Callable[CallParams, Any]) -> ParameterResolverProtocol[
+        CallParams
+    ]: ...

@@ -52,3 +52,7 @@ class RouterAlreadyMountedError(IoCError):
 
 class MissingMountError(IoCError):
     pass
+
+
+class MissingRouteError(IoCError):
+    pass
