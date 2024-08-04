@@ -22,11 +22,27 @@ class AmbiguousHostError(CoreError):
     pass
 
 
+class InvalidHostSubject(CoreError):
+    pass
+
+
 class IoCError(PlugInError):
     """
     Base class for all exceptions raised by ioc module
     """
 
+    pass
+
+
+class ObjectNotSupported(IoCError):
+    pass
+
+
+class EmptyHostAnnotationError(IoCError):
+    pass
+
+
+class UnexpectedForwardRefError(IoCError):
     pass
 
 

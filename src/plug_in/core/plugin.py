@@ -5,6 +5,8 @@ from typing import Callable, Literal, cast, overload
 from plug_in.core.enum import PluginPolicy
 from plug_in.core.plug import CorePlug
 from plug_in.core.host import CoreHost
+from plug_in.exc import UnexpectedForwardRefError
+from plug_in.tools.introspect import contains_forward_refs
 from plug_in.types.proto.core_plugin import (
     BindingCorePluginProtocol,
     ProvidingCorePluginProtocol,
@@ -18,6 +20,17 @@ class DirectCorePlugin[JointType: Joint](BindingCorePluginProtocol[JointType]):
     _plug: CorePlug[JointType]
     _host: CoreHost[JointType]
     _policy: Literal[PluginPolicy.DIRECT] = PluginPolicy.DIRECT
+
+    def __post_init__(self):
+        """
+        Raises:
+            [.UnexpectedForwardRefError][]: When provided host has forward references.
+        """
+        if contains_forward_refs(self._host.subject):
+            raise UnexpectedForwardRefError(
+                f"Given host {self._host} contains forward references, which are not "
+                f"allowed at plugin creation time."
+            )
 
     @property
     def plug(self) -> CorePlug[JointType]:
@@ -40,6 +53,17 @@ class LazyCorePlugin[JointType: Joint](ProvidingCorePluginProtocol[JointType]):
     _plug: CorePlug[Callable[[], JointType]]
     _host: CoreHost[JointType]
     _policy: Literal[PluginPolicy.LAZY] = PluginPolicy.LAZY
+
+    def __post_init__(self):
+        """
+        Raises:
+            [.UnexpectedForwardRefError][]: When provided host has forward references.
+        """
+        if contains_forward_refs(self._host.subject):
+            raise UnexpectedForwardRefError(
+                f"Given host {self._host} contains forward references, which are not "
+                f"allowed at plugin creation time."
+            )
 
     @property
     def plug(self) -> CorePlug[Callable[[], JointType]]:
@@ -65,6 +89,17 @@ class FactoryCorePlugin[JointType: Joint](ProvidingCorePluginProtocol[JointType]
     _plug: CorePlug[Callable[[], JointType]]
     _host: CoreHost[JointType]
     _policy: Literal[PluginPolicy.FACTORY] = PluginPolicy.FACTORY
+
+    def __post_init__(self):
+        """
+        Raises:
+            [.UnexpectedForwardRefError][]: When provided host has forward references.
+        """
+        if contains_forward_refs(self._host.subject):
+            raise UnexpectedForwardRefError(
+                f"Given host {self._host} contains forward references, which are not "
+                f"allowed at plugin creation time."
+            )
 
     @property
     def plug(self) -> CorePlug[Callable[[], JointType]]:

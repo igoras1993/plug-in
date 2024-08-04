@@ -13,6 +13,12 @@ from plug_in.types.proto.joint import Joint
 #   type system. See e.g. this proposal:
 #   https://discuss.python.org/t/pre-pep-considerations-and-feedback-type-transformations-on-variadic-generics/50605
 class CoreRegistry(CoreRegistryProtocol):
+    """
+    Holds collection of plugins. Registry object is immutable.
+
+    Raises:
+        [.AmbiguousHostError][]: When host collision occurs.
+    """
 
     def __init__(
         self,

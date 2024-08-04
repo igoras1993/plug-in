@@ -27,13 +27,26 @@ class RouterProtocol(Protocol):
     @abstractmethod
     def resolve[JointType: Joint](self, host: CoreHostProtocol[JointType]) -> JointType:
         """
+        Resolve a host via mounted registry.
+
         Raises:
             [plug_in.exc.MissingMountError][]: ...
             [plug_in.exc.MissingPluginError][]: ...
         """
-        ...
+
+    # @abstractmethod
+    # def resolve_at(self, callable: Callable, host_mark: HostedMarkProtocol) -> Joint:
+    #     """
+    #     Resolve given host mark in context of some callable.
+
+    #     Raises:
+    #         [plug_in.exc.MissingMountError][]: ...
+    #         [plug_in.exc.MissingPluginError][]: ...
+    #     """
+    #     ...
 
     @abstractmethod
-    def manage[
-        T: Manageable
-    ](self, eager_forward_resolve: bool = True) -> Callable[[T], T]: ...
+    def manage[T: Manageable](self, *args, **kwargs) -> Callable[[T], T]:
+        """
+        Decorator factory for marking a callable as managed
+        """

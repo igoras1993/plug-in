@@ -85,7 +85,7 @@ def test_registry_can_be_hosted():
         [
             create_core_plugin(
                 plug=CorePlug(reg1),
-                host=CoreHost(CoreRegistry, _mark="reg1"),
+                host=CoreHost(CoreRegistry, _marks=("reg1",)),
                 policy=PluginPolicy.DIRECT,
             ),
             # In here, for the same types as before, we plug different providers
@@ -101,27 +101,27 @@ def test_registry_can_be_hosted():
             ),
             create_core_plugin(
                 plug=CorePlug("Scott"),
-                host=CoreHost(str, _mark="FIRST_NAME"),
+                host=CoreHost(str, _marks=("FIRST_NAME",)),
                 policy=PluginPolicy.DIRECT,
             ),
             create_core_plugin(
                 plug=CorePlug("Tiger"),
-                host=CoreHost(str, _mark="LAST_NAME"),
+                host=CoreHost(str, _marks=("LAST_NAME",)),
                 policy=PluginPolicy.DIRECT,
             ),
         ]
     )
 
-    assert reg2.resolve(CoreHost(str, "FIRST_NAME")) == "Scott"
-    assert reg2.resolve(CoreHost(str, "LAST_NAME")) == "Tiger"
+    assert reg2.resolve(CoreHost(str, ("FIRST_NAME",))) == "Scott"
+    assert reg2.resolve(CoreHost(str, ("LAST_NAME",))) == "Tiger"
     assert reg2.resolve(CoreHost(SampleClass[int])) == SampleClass(100)
     assert reg2.resolve(CoreHost(SampleClass[str])) == SampleClass("abcdef")
 
-    assert reg2.resolve(CoreHost(CoreRegistry, "reg1")) == reg1
+    assert reg2.resolve(CoreHost(CoreRegistry, ("reg1",))) == reg1
 
-    assert reg2.resolve(CoreHost(CoreRegistry, "reg1")).resolve(
+    assert reg2.resolve(CoreHost(CoreRegistry, ("reg1",))).resolve(
         CoreHost(SampleClass[int])
     ) == SampleClass(10)
-    assert reg2.resolve(CoreHost(CoreRegistry, "reg1")).resolve(
+    assert reg2.resolve(CoreHost(CoreRegistry, ("reg1",))).resolve(
         CoreHost(SampleClass[str])
     ) == SampleClass("abc")
