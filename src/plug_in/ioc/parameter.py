@@ -16,6 +16,11 @@ from plug_in.tools.introspect import contains_forward_refs
 from plug_in.types.proto.core_host import CoreHostProtocol
 from plug_in.types.proto.hosted_mark import HostedMarkProtocol
 from plug_in.types.proto.joint import Joint
+from plug_in.types.proto.parameter import (
+    FinalParamStageProtocol,
+    FinalParamsProtocol,
+    ParamsStateMachineProtocol,
+)
 
 
 class ParamsStateType(StrEnum):
@@ -26,18 +31,48 @@ class ParamsStateType(StrEnum):
 
 
 @dataclass
-class ResolverParamStage[T: HostedMarkProtocol, JointType: Joint]:
-    name: str
-    default: T
-    host: CoreHost[JointType]
-    resolver: Callable[[], JointType]
+class ResolverParamStage[T: HostedMarkProtocol, JointType: Joint](
+    FinalParamStageProtocol[T, JointType]
+):
+    _name: str
+    _default: T
+    _host: CoreHostProtocol[JointType]
+    _resolver: Callable[[], JointType]
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def default(self) -> T:
+        return self._default
+
+    @property
+    def host(self) -> CoreHostProtocol[JointType]:
+        return self._host
+
+    @property
+    def resolver(self) -> Callable[[], JointType]:
+        return self._resolver
 
 
 @dataclass
 class HostParamStage[T: HostedMarkProtocol, JointType: Joint]:
-    name: str
-    default: T
-    host: CoreHost[JointType]
+    _name: str
+    _default: T
+    _host: CoreHostProtocol[JointType]
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def default(self) -> T:
+        return self._default
+
+    @property
+    def host(self) -> CoreHostProtocol[JointType]:
+        return self._host
 
 
 @dataclass
@@ -46,8 +81,16 @@ class DefaultParamStage[T: HostedMarkProtocol]:
     Annotation is available and validated
     """
 
-    name: str
-    default: T
+    _name: str
+    _default: T
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def default(self) -> T:
+        return self._default
 
 
 @dataclass
@@ -55,7 +98,7 @@ class NothingParamStage:
     pass
 
 
-class ParamsStateMachine(ABC):
+class ParamsStateMachine(ABC, ParamsStateMachineProtocol):
 
     @property
     @abstractmethod
@@ -97,7 +140,9 @@ class ParamsStateMachine(ABC):
 
 
 @dataclass
-class ResolverParams[T: HostedMarkProtocol, JointType: Joint](ParamsStateMachine):
+class ResolverParams[T: HostedMarkProtocol, JointType: Joint](
+    ParamsStateMachine, FinalParamsProtocol
+):
     _params: list[ResolverParamStage[T, JointType]]
     _type_hints: dict[str, Any]
     _sig: inspect.Signature
@@ -191,10 +236,10 @@ class HostParams[T: HostedMarkProtocol, JointType: Joint](ParamsStateMachine):
 
         resolver_ready_stages = [
             ResolverParamStage(
-                name=staged_host_param.name,
-                default=staged_host_param.default,
-                host=staged_host_param.host,
-                resolver=self.resolve_provider(staged_host_param.host),
+                _name=staged_host_param.name,
+                _default=staged_host_param.default,
+                _host=staged_host_param.host,
+                _resolver=self.resolve_provider(staged_host_param.host),
             )
             for staged_host_param in self.params
         ]
@@ -319,9 +364,9 @@ class DefaultParams[T: HostedMarkProtocol](ParamsStateMachine):
             # Sanity check done, prepare next stage
             host_ready_stages.append(
                 HostParamStage(
-                    name=staged_default_param.name,
-                    default=staged_default_param.default,
-                    host=host,
+                    _name=staged_default_param.name,
+                    _default=staged_default_param.default,
+                    _host=host,
                 )
             )
 
@@ -408,7 +453,7 @@ class NothingParams(ParamsStateMachine):
             ) from orig_e
 
         default_ready_stages: list[DefaultParamStage] = [
-            DefaultParamStage(name=param_name, default=param.default)
+            DefaultParamStage(_name=param_name, _default=param.default)
             for param_name, param in sig.parameters.items()
             if isinstance(param.default, HostedMark)
         ]
