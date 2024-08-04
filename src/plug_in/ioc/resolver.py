@@ -9,12 +9,13 @@ from plug_in.exc import (
     ObjectNotSupported,
     UnexpectedForwardRefError,
 )
-from plug_in.ioc.parameter import NothingParams
+from plug_in.ioc.parameter import NothingParams, ParamsStateMachine
 from plug_in.types.proto.core_host import CoreHostProtocol
 from plug_in.types.proto.joint import Joint
+from plug_in.types.proto.resolver import ParameterResolverProtocol
 
 
-class ParameterResolver[**CallParams]:
+class ParameterResolver[**CallParams](ParameterResolverProtocol):
     """
     Helper class for efficient callable signature replacement.
 
@@ -35,12 +36,16 @@ class ParameterResolver[**CallParams]:
         resolve_callback: Callable[[CoreHostProtocol], Callable[[], Joint]],
         assert_resolver_ready: bool = False,
     ) -> None:
-        self._state = NothingParams(
+        self._state: ParamsStateMachine = NothingParams(
             _callable=callable, _resolve_provider=resolve_callback
         )
 
         # Try to advance
         self.try_finalize_state(assert_resolver_ready)
+
+    @property
+    def state(self) -> ParamsStateMachine:
+        return self._state
 
     def try_finalize_state(self, assert_resolver_ready: bool = False) -> None:
         """
