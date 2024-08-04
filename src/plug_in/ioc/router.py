@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from functools import partial
+from functools import partial, wraps
 from typing import Callable, cast
 from plug_in.exc import MissingMountError, RouterAlreadyMountedError
 from plug_in.types.proto.core_host import CoreHostProtocol
@@ -7,7 +7,7 @@ from plug_in.types.proto.core_registry import CoreRegistryProtocol
 from plug_in.types.proto.router import RouterProtocol
 from plug_in.types.proto.joint import Joint
 from plug_in.types.alias import Manageable
-from plug_in.ioc.resolve import callable_route_factory
+from plug_in.ioc.resolve import ParameterResolver
 
 
 @dataclass
@@ -15,6 +15,7 @@ class Router(RouterProtocol):
 
     def __init__(self) -> None:
         self._reg: CoreRegistryProtocol | None = None
+        # self._routes: dict[Callable, ParameterResolver] = {}
 
     def mount(self, registry: CoreRegistryProtocol) -> None:
         """
@@ -38,24 +39,76 @@ class Router(RouterProtocol):
 
         return self._reg
 
-    def resolve[JointType: Joint](self, host: CoreHostProtocol[JointType]) -> Joint:
+    def resolve[JointType: Joint](self, host: CoreHostProtocol[JointType]) -> JointType:
         """
+        Resolve a host via mounted registry.
+
         Raises:
             [plug_in.exc.MissingMountError][]: ...
             [plug_in.exc.MissingPluginError][]: ...
         """
         reg = self.get_registry()
-        return reg.resolve(host=host)
+        return reg.resolve(host)
 
-    def _callable_manager_factory[
-        T: Manageable
-    ](self, eager_forward_resolve: bool, callable: T) -> T:
-        # TODO: Consider adding runtime check for being callable
-        return cast(T, callable_route_factory(callable, self, eager_forward_resolve))
+    def _resolve_factory[
+        JointType: Joint
+    ](self, host: CoreHostProtocol[JointType]) -> Callable[[], JointType]:
+        """
+        Return a callable that resolves host via mounted registry
+        """
+        return partial(self.resolve, host)
 
-    def manage[
-        T: Manageable
-    ](self, eager_forward_resolve: bool = True) -> Callable[[T], T]:
+    # def resolve_at(self, callable: Callable, host_mark: HostedMarkProtocol) -> Joint:
+    #     """
+    #     Resolve given host mark in context of some callable.
+
+    #     Raises:
+    #         [plug_in.exc.MissingMountError][]: ...
+    #         [plug_in.exc.MissingPluginError][]: ...
+    #     """
+    #     reg = self.get_registry()
+
+    #     # Simulate state progression
+    #     state = NothingParams(callable=callable, resolve_provider=reg.resolve)
+    #     state = state.finalize()
+    #     resolver_map = state.resolver_map()
+    #     return resolver_map[]
+
+    def _callable_route_factory[
+        R, **P
+    ](self, callable: Callable[P, R]) -> Callable[P, R]:
+        """
+        Create new callable that will have default values substituted by a plugin
+        resolver.
+
+        Args:
+            callable: Subject callable.
+
+        Returns:
+            New callable with substituted `CoreHost` defaults. Nothing but default
+            values to parameters change in new callable signature.
+        """
+        # Keep parameter resolver
+        param_resolver = ParameterResolver(
+            callable=callable,
+            resolve_callback=self._resolve_factory,
+        )
+
+        # TODO: Save routes
+        # self._routes[callable] = param_resolver
+
+        # Create wrapper for callable
+        @wraps(callable)
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+            # Get arg bind
+            bind = param_resolver.get_one_time_bind(*args, **kwargs)
+
+            # Proceed with call
+            return callable(*bind.args, **bind.kwargs)
+
+        return wrapper
+
+    def manage[T: Manageable](self) -> Callable[[T], T]:
         """
         Decorator maker for marking callables to be managed by plug_in IoC system.
 
@@ -74,4 +127,4 @@ class Router(RouterProtocol):
             Decorator that makes your callable a manageable entity
 
         """
-        return partial(self._callable_manager_factory, eager_forward_resolve)
+        return cast(Callable[[T], T], self._callable_route_factory)
