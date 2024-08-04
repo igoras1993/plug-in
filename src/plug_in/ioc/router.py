@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from functools import partial, wraps
 from typing import Callable, cast
 from plug_in.exc import MissingMountError, RouterAlreadyMountedError
@@ -10,12 +9,11 @@ from plug_in.types.alias import Manageable
 from plug_in.ioc.resolver import ParameterResolver
 
 
-@dataclass
 class Router(RouterProtocol):
 
     def __init__(self) -> None:
         self._reg: CoreRegistryProtocol | None = None
-        # self._routes: dict[Callable, ParameterResolver] = {}
+        self._routes: dict[Callable, ParameterResolver] = {}
 
     def mount(self, registry: CoreRegistryProtocol) -> None:
         """
