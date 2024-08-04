@@ -7,7 +7,7 @@ from plug_in.types.proto.core_registry import CoreRegistryProtocol
 from plug_in.types.proto.router import RouterProtocol
 from plug_in.types.proto.joint import Joint
 from plug_in.types.alias import Manageable
-from plug_in.ioc.resolve import ParameterResolver
+from plug_in.ioc.resolver import ParameterResolver
 
 
 @dataclass
