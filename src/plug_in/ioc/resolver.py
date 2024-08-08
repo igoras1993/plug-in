@@ -3,7 +3,6 @@ import logging
 from typing import Any, Callable
 from plug_in.exc import (
     EmptyHostAnnotationError,
-    InvalidHostSubject,
     MissingMountError,
     MissingPluginError,
     ObjectNotSupported,
@@ -82,8 +81,6 @@ class ParameterResolver[**CallParams](ParameterResolverProtocol):
                 a `plug_in`
             [.EmptyHostAnnotationError][]: Always when callable parameter marked
                 by a [.HostedMark][] has no annotation.
-            [.InvalidHostSubject][]: Always when callable parameter marked by a
-                [.HostMark][] is annotated with object which is not a valid type.
 
         """
         while not self._state.is_final():
@@ -92,7 +89,6 @@ class ParameterResolver[**CallParams](ParameterResolverProtocol):
             except (
                 ObjectNotSupported,
                 EmptyHostAnnotationError,
-                InvalidHostSubject,
             ) as e:
                 # Always reraise
                 raise e

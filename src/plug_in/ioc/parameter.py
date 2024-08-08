@@ -289,7 +289,6 @@ class DefaultParams[T: HostedMarkProtocol](ParamsStateMachine):
 
         Raises:
             [.EmptyHostAnnotationError][]: ...
-            [.InvalidHostSubject][]: ...
 
         """
 
@@ -345,9 +344,9 @@ class DefaultParams[T: HostedMarkProtocol](ParamsStateMachine):
                 )
 
             # One more validity check involves checking if annotation exists
-            # on parked param and it is a valid type
+            # on marked param
 
-            # 1. Annotation not present
+            # Annotation not present
             try:
                 annotation = hints[staged_default_param.name]
             except KeyError as e:
@@ -357,8 +356,6 @@ class DefaultParams[T: HostedMarkProtocol](ParamsStateMachine):
                     f"callable signature {self.sig}"
                 ) from e
 
-            # 2. Invalid host subject - annotation is present but is not a type
-            # This line will raise InvalidHostSubject
             host = CoreHost(annotation, staged_default_param.default.marks)
 
             # Sanity check done, prepare next stage
