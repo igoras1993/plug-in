@@ -22,6 +22,7 @@ class AmbiguousHostError(CoreError):
     pass
 
 
+# TODO: To be removed
 class InvalidHostSubject(CoreError):
     pass
 
