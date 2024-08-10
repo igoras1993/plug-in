@@ -1,6 +1,5 @@
 from dataclasses import dataclass
-from types import GenericAlias, NoneType, UnionType
-from typing import Hashable, TypeAliasType
+from typing import Hashable
 from plug_in.types.proto.core_host import CoreHostProtocol
 
 
@@ -12,7 +11,7 @@ class CoreHost[Subject](CoreHostProtocol[Subject]):
 
     """
 
-    _subject: UnionType | GenericAlias | TypeAliasType | NoneType | type[Subject]
+    _subject: Hashable | type[Subject]
     _marks: tuple[Hashable, ...] = ()
 
     # This was a wrong decision
@@ -36,7 +35,7 @@ class CoreHost[Subject](CoreHostProtocol[Subject]):
     @property
     def subject(
         self,
-    ) -> UnionType | GenericAlias | TypeAliasType | NoneType | type[Subject]:
+    ) -> Hashable | type[Subject]:
         return self._subject
 
     @property
