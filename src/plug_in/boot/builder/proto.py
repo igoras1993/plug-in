@@ -74,11 +74,11 @@ class TypedProvidingPluginSelectorProtocol[P](Protocol):
         USAGE PROHIBITED.
 
         This method exists only for type-consistency purpose. It will
-        raise NotImplementedError every time. You cannot plug callable
+        raise TypeError every time. You cannot plug callable
         directly into typed host. Usage is allowed only for non-typed
         hosts.
         """
-        raise NotImplementedError()
+        raise TypeError()
 
     @overload
     @abstractmethod

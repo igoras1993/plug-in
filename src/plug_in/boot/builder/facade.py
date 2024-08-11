@@ -1,4 +1,3 @@
-import inspect
 from typing import (
     Callable,
     Hashable,
@@ -16,7 +15,6 @@ from plug_in.boot.builder.proto import (
 from plug_in.boot.builder.selector import (
     PluginSelector,
     ProvidingPluginSelector,
-    TypedProvidingPluginSelector,
 )
 
 
@@ -68,6 +66,8 @@ class ProvidingPlugFacade[T](ProvidingPlugFacadeProtocol[T]):
         Plug the result of Your callable into well known host type.
         Proceed with `.via_provider` (or sometimes with `.directly`) to
         finish Your plugin creation.
+
+        This will fail with RuntimeError if subject is a type and provider ...
         """
         ...
 
@@ -91,8 +91,4 @@ class ProvidingPlugFacade[T](ProvidingPlugFacadeProtocol[T]):
         ProvidingPluginSelectorProtocol[T],
         TypedProvidingPluginSelectorProtocol[T],
     ]:
-        sig = inspect.signature(self._provider)
-        if isinstance(subject, type) and issubclass(sig.return_annotation, subject):
-            return TypedProvidingPluginSelector(self._provider, subject, *marks)
-        else:
-            return ProvidingPluginSelector(self._provider, subject, *marks)
+        return ProvidingPluginSelector(self._provider, subject, *marks)
