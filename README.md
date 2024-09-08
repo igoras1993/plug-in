@@ -1,15 +1,26 @@
 # Plug In
 
-Project goals:
+`plug-in` is a library that allows You to manage dependencies across  Your project
+code. Usage of `plug-in` in Your apps will result in easy-to-maintain project
+structure. It guides You throughout development process by bringing the
+[plugin architecture]() into Your application. `plug-in` implements this architecture
+for You, with explicit requirements on Your project structure.
+
+## Project status
+
+I am actively developing this project right now. I've implemented the basic
+functionalities and still working on API. Right now, project is
+in **alpha phase**.
+
+
+## Project goals
 
 - Supply SDK for inversion of control
-- Small codebase
 - Familiar for python developers
+- Fully typed
 - Mix best things from IoC and python code style
 - Async support
-- Fully typed
-
-...
+- Small codebase
 
 ## Contributing
 
