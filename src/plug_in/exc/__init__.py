@@ -57,3 +57,13 @@ class MissingMountError(IoCError):
 
 class MissingRouteError(IoCError):
     pass
+
+
+class BootError(PlugInError):
+    """
+    Base class for all exceptions raised in boot module
+    """
+
+
+class ConfigError(BootError):
+    pass
