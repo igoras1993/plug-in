@@ -1,9 +1,12 @@
 import threading
 from typing import Any, Iterable
 
-from plug_in.core.plugin import DirectCorePlugin, FactoryCorePlugin, LazyCorePlugin
 from plug_in.exc import AmbiguousHostError, MissingPluginError
 from plug_in.types.proto.core_host import CoreHostProtocol
+from plug_in.types.proto.core_plugin import (
+    BindingCorePluginProtocol,
+    ProvidingCorePluginProtocol,
+)
 from plug_in.types.proto.core_registry import CoreRegistryProtocol
 from plug_in.types.proto.joint import Joint
 
@@ -23,18 +26,19 @@ class CoreRegistry(CoreRegistryProtocol):
     def __init__(
         self,
         plugins: Iterable[
-            DirectCorePlugin[Any] | LazyCorePlugin[Any] | FactoryCorePlugin[Any]
+            BindingCorePluginProtocol[Any] | ProvidingCorePluginProtocol[Any]
         ],
         #  TODO: Consider adding verify_joints param
         #  verify_joints: bool = True,
     ) -> None:
+        self._original_plugins = plugins
 
         # TODO: Verify if this is indeed needed for multithreading.
         #   Asyncio tasks are safe as this never will be an async method
         with threading.Lock():
             self._hash_to_plugin_map: dict[
                 int,
-                DirectCorePlugin[Any] | LazyCorePlugin[Any] | FactoryCorePlugin[Any],
+                BindingCorePluginProtocol[Any] | ProvidingCorePluginProtocol[Any],
             ] = {}
 
             for plugin in plugins:
@@ -58,9 +62,7 @@ class CoreRegistry(CoreRegistryProtocol):
     def plugin[
         JointType: Joint
     ](self, host: CoreHostProtocol[JointType]) -> (
-        DirectCorePlugin[JointType]
-        | LazyCorePlugin[JointType]
-        | FactoryCorePlugin[JointType]
+        BindingCorePluginProtocol[Any] | ProvidingCorePluginProtocol[Any]
     ):
         """
         Raises:
@@ -83,3 +85,6 @@ class CoreRegistry(CoreRegistryProtocol):
     # Implemented it for trial. Do not know if it will be needed
     def __hash__(self) -> int:
         return self._hash_val
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(\n\t" f"{self._original_plugins}"
