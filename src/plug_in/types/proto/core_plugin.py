@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import Callable, Protocol
+from typing import Awaitable, Callable, Protocol
 
 from plug_in.types.proto.core_host import CoreHostProtocol
 from plug_in.types.proto.core_plug import CorePlugProtocol
@@ -20,9 +20,11 @@ class BindingCorePluginProtocol[JointType: Joint](
     CorePluginProtocol[JointType], Protocol
 ):
     @property
+    @abstractmethod
     def plug(self) -> CorePlugProtocol[JointType]: ...
 
     @property
+    @abstractmethod
     def host(self) -> CoreHostProtocol[JointType]: ...
 
 
@@ -32,7 +34,22 @@ class ProvidingCorePluginProtocol[JointType: Joint](
     CorePluginProtocol[JointType], Protocol
 ):
     @property
+    @abstractmethod
     def plug(self) -> CorePlugProtocol[Callable[[], JointType]]: ...
 
     @property
+    @abstractmethod
+    def host(self) -> CoreHostProtocol[JointType]: ...
+
+
+class AsyncCorePluginProtocol[JointType: Joint](Protocol):
+    @abstractmethod
+    async def provide(self) -> JointType: ...
+
+    @property
+    @abstractmethod
+    def plug(self) -> CorePlugProtocol[Callable[[], Awaitable[JointType]]]: ...
+
+    @property
+    @abstractmethod
     def host(self) -> CoreHostProtocol[JointType]: ...
