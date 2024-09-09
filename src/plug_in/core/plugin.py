@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 import threading
-from typing import Callable, Literal, cast, overload
+from typing import Awaitable, Callable, Literal, cast, overload
 
 from plug_in.core.enum import PluginPolicy
 from plug_in.core.plug import CorePlug
@@ -8,6 +8,7 @@ from plug_in.core.host import CoreHost
 from plug_in.exc import UnexpectedForwardRefError
 from plug_in.tools.introspect import contains_forward_refs
 from plug_in.types.proto.core_plugin import (
+    AsyncCorePluginProtocol,
     BindingCorePluginProtocol,
     ProvidingCorePluginProtocol,
 )
@@ -74,6 +75,7 @@ class LazyCorePlugin[JointType: Joint](ProvidingCorePluginProtocol[JointType]):
         return self._host
 
     def provide(self) -> JointType:
+        # TODO: Lock should be instantiated
         with threading.Lock():
             try:
                 return getattr(self, "_provided")
@@ -113,6 +115,71 @@ class FactoryCorePlugin[JointType: Joint](ProvidingCorePluginProtocol[JointType]
         return self.plug.provider()
 
 
+@dataclass(frozen=True)
+class LazyAsyncCorePlugin[JointType: Joint](AsyncCorePluginProtocol[JointType]):
+    _plug: CorePlug[Callable[[], Awaitable[JointType]]]
+    _host: CoreHost[JointType]
+    _policy: Literal[PluginPolicy.LAZY_ASYNC] = PluginPolicy.LAZY_ASYNC
+
+    def __post_init__(self):
+        """
+        Raises:
+            [.UnexpectedForwardRefError][]: When provided host has forward references.
+        """
+        if contains_forward_refs(self._host.subject):
+            raise UnexpectedForwardRefError(
+                f"Given host {self._host} contains forward references, which are not "
+                f"allowed at plugin creation time."
+            )
+
+    @property
+    def plug(self) -> CorePlug[Callable[[], Awaitable[JointType]]]:
+        return self._plug
+
+    @property
+    def host(self) -> CoreHost[JointType]:
+        return self._host
+
+    async def provide(self) -> JointType:
+        # TODO: asyncio.Lock()
+        try:
+            return getattr(self, "_provided")
+        except AttributeError:
+            _provided = await self.plug.provider()
+            object.__setattr__(self, "_provided", _provided)
+
+        return _provided
+
+
+@dataclass(frozen=True)
+class FactoryAsyncCorePlugin[JointType: Joint](AsyncCorePluginProtocol[JointType]):
+    _plug: CorePlug[Callable[[], Awaitable[JointType]]]
+    _host: CoreHost[JointType]
+    _policy: Literal[PluginPolicy.FACTORY_ASYNC] = PluginPolicy.FACTORY_ASYNC
+
+    def __post_init__(self):
+        """
+        Raises:
+            [.UnexpectedForwardRefError][]: When provided host has forward references.
+        """
+        if contains_forward_refs(self._host.subject):
+            raise UnexpectedForwardRefError(
+                f"Given host {self._host} contains forward references, which are not "
+                f"allowed at plugin creation time."
+            )
+
+    @property
+    def plug(self) -> CorePlug[Callable[[], Awaitable[JointType]]]:
+        return self._plug
+
+    @property
+    def host(self) -> CoreHost[JointType]:
+        return self._host
+
+    async def provide(self) -> JointType:
+        return await self.plug.provider()
+
+
 @overload
 def create_core_plugin[
     JointType: Joint
@@ -143,16 +210,48 @@ def create_core_plugin[
 ) -> FactoryCorePlugin[JointType]: ...
 
 
+@overload
 def create_core_plugin[
     JointType: Joint
 ](
-    plug: CorePlug[Callable[[], JointType]] | CorePlug[JointType],
+    plug: CorePlug[Callable[[], Awaitable[JointType]]],
     host: CoreHost[JointType],
-    policy: Literal[PluginPolicy.DIRECT, PluginPolicy.LAZY, PluginPolicy.FACTORY],
+    policy: Literal[PluginPolicy.LAZY_ASYNC],
+) -> LazyAsyncCorePlugin[JointType]: ...
+
+
+@overload
+def create_core_plugin[
+    JointType: Joint
+](
+    plug: CorePlug[Callable[[], Awaitable[JointType]]],
+    host: CoreHost[JointType],
+    policy: Literal[PluginPolicy.FACTORY_ASYNC],
+) -> FactoryAsyncCorePlugin[JointType]: ...
+
+
+def create_core_plugin[
+    JointType: Joint
+](
+    plug: (
+        CorePlug[Callable[[], JointType]]
+        | CorePlug[JointType]
+        | CorePlug[Callable[[], Awaitable[JointType]]]
+    ),
+    host: CoreHost[JointType],
+    policy: Literal[
+        PluginPolicy.DIRECT,
+        PluginPolicy.LAZY,
+        PluginPolicy.FACTORY,
+        PluginPolicy.LAZY_ASYNC,
+        PluginPolicy.FACTORY_ASYNC,
+    ],
 ) -> (
     DirectCorePlugin[JointType]
     | LazyCorePlugin[JointType]
     | FactoryCorePlugin[JointType]
+    | LazyAsyncCorePlugin[JointType]
+    | FactoryAsyncCorePlugin[JointType]
 ):
     match policy:
         case PluginPolicy.DIRECT:
@@ -174,5 +273,18 @@ def create_core_plugin[
                 _host=host,
                 _policy=policy,
             )
+        case PluginPolicy.LAZY_ASYNC:
+            return LazyAsyncCorePlugin(
+                _plug=cast(CorePlug[Callable[[], Awaitable[JointType]]], plug),
+                _host=host,
+                _policy=policy,
+            )
+        case PluginPolicy.FACTORY_ASYNC:
+            return FactoryAsyncCorePlugin(
+                _plug=cast(CorePlug[Callable[[], Awaitable[JointType]]], plug),
+                _host=host,
+                _policy=policy,
+            )
+
         case _:
             raise RuntimeError(f"Unsupported plugin policy: {policy}")
