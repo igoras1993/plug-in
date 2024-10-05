@@ -3,18 +3,23 @@ import sys
 
 from logging import getLogger
 from pathlib import Path
-from pytest import fixture
+import pytest
 
 
 logger = getLogger(__name__)
 
 
-@fixture(scope="module")
-def sample_app_1_package_path():
+@pytest.fixture(scope="module")
+def sample_app_package_path(request: pytest.FixtureRequest):
+    app_dir_name: str = request.param
+    assert isinstance(
+        app_dir_name, str
+    ), "Expecting string in fixture request parameter"
+
     path = str(
         Path(__file__)
         .parent.parent.parent.parent.joinpath("sample")
-        .joinpath("sample_app_1")
+        .joinpath(app_dir_name)
         .absolute()
     )
 
@@ -39,13 +44,14 @@ def sample_app_1_package_path():
         logger.info(
             "Removing previously inserted path:\n\t"
             "--> %s\n\t"
-            "-- It fas found at position: %s",
+            "-- It was found at position: %s",
             path,
             idx,
         )
 
 
-def test_sample_app_1_runs_and_injects(sample_app_1_package_path):
+@pytest.mark.parametrize("sample_app_package_path", ["sample_app_1"], indirect=True)
+def test_sample_app_1_runs_and_injects(sample_app_package_path):
 
     config = importlib.import_module("config")
     config.configure()

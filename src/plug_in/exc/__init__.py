@@ -27,11 +27,19 @@ class InvalidHostSubject(CoreError):
     pass
 
 
+class AsyncPluginCannotBeAwaited(CoreError, RuntimeError):
+    pass
+
+
 class IoCError(PlugInError):
     """
     Base class for all exceptions raised by ioc module
     """
 
+    pass
+
+
+class SyncPluginExpected(IoCError):
     pass
 
 

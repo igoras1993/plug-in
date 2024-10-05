@@ -9,19 +9,25 @@ from plug_in.boot.builder.facade import (
 
 
 @overload
-def plug[T](provider: Callable[[], T]) -> ProvidingPlugFacadeProtocol[T]: ...
+def plug[
+    T, MetaData
+](provider: Callable[[], T], metadata: MetaData = None) -> ProvidingPlugFacadeProtocol[
+    T, MetaData
+]: ...
 
 
 @overload
-def plug[T](provider: T) -> PlugFacadeProtocol[T]: ...
+def plug[
+    T, MetaData
+](provider: T, metadata: MetaData = None) -> PlugFacadeProtocol[T, MetaData]: ...
 
 
 def plug[
-    T
-](provider: Callable[[], T] | T) -> (
-    ProvidingPlugFacadeProtocol[T] | PlugFacadeProtocol[T]
+    T, MetaData
+](provider: Callable[[], T] | T, metadata: MetaData = None) -> (
+    ProvidingPlugFacadeProtocol[T, MetaData] | PlugFacadeProtocol[T, MetaData]
 ):
     if callable(provider):
-        return ProvidingPlugFacade(provider)
+        return ProvidingPlugFacade(provider, metadata)
     else:
-        return PlugFacade(provider)
+        return PlugFacade(provider, metadata)

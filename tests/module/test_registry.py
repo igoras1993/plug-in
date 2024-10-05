@@ -112,16 +112,16 @@ def test_registry_can_be_hosted():
         ]
     )
 
-    assert reg2.resolve(CoreHost(str, ("FIRST_NAME",))) == "Scott"
-    assert reg2.resolve(CoreHost(str, ("LAST_NAME",))) == "Tiger"
-    assert reg2.resolve(CoreHost(SampleClass[int])) == SampleClass(100)
-    assert reg2.resolve(CoreHost(SampleClass[str])) == SampleClass("abcdef")
+    assert reg2.sync_resolve(CoreHost(str, ("FIRST_NAME",))) == "Scott"
+    assert reg2.sync_resolve(CoreHost(str, ("LAST_NAME",))) == "Tiger"
+    assert reg2.sync_resolve(CoreHost(SampleClass[int])) == SampleClass(100)
+    assert reg2.sync_resolve(CoreHost(SampleClass[str])) == SampleClass("abcdef")
 
-    assert reg2.resolve(CoreHost(CoreRegistry, ("reg1",))) == reg1
+    assert reg2.sync_resolve(CoreHost(CoreRegistry, ("reg1",))) == reg1
 
-    assert reg2.resolve(CoreHost(CoreRegistry, ("reg1",))).resolve(
+    assert reg2.sync_resolve(CoreHost(CoreRegistry, ("reg1",))).sync_resolve(
         CoreHost(SampleClass[int])
     ) == SampleClass(10)
-    assert reg2.resolve(CoreHost(CoreRegistry, ("reg1",))).resolve(
+    assert reg2.sync_resolve(CoreHost(CoreRegistry, ("reg1",))).sync_resolve(
         CoreHost(SampleClass[str])
     ) == SampleClass("abc")

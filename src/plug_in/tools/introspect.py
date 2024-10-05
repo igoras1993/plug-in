@@ -1,3 +1,4 @@
+import asyncio
 import inspect
 from typing import Any, Callable, ForwardRef, get_args, get_type_hints
 
@@ -62,3 +63,13 @@ def contains_forward_refs(type_: Any) -> bool:
             return True
 
     return False
+
+
+def is_coroutine_callable(obj: Any) -> bool:
+    """
+    Returns True if given argument is a callable that returns a coroutine.
+    Works for both coroutine functions, and callable objects returning coroutines.
+    """
+    return asyncio.iscoroutinefunction(obj) or (
+        callable(obj) and asyncio.iscoroutinefunction(obj.__call__)
+    )

@@ -1,5 +1,3 @@
-from typing import Protocol
+from typing import Any
 
-
-class Joint(Protocol):
-    pass
+type Joint = Any
