@@ -1,6 +1,14 @@
 import asyncio
 import inspect
-from typing import Any, Callable, ForwardRef, get_args, get_type_hints
+from typing import (
+    Any,
+    Awaitable,
+    Callable,
+    ForwardRef,
+    TypeGuard,
+    get_args,
+    get_type_hints,
+)
 
 
 def compare(a: Any, b: Any, strict: bool) -> bool:
@@ -65,7 +73,7 @@ def contains_forward_refs(type_: Any) -> bool:
     return False
 
 
-def is_coroutine_callable(obj: Any) -> bool:
+def is_coroutine_callable(obj: Any) -> TypeGuard[Callable[..., Awaitable[Any]]]:
     """
     Returns True if given argument is a callable that returns a coroutine.
     Works for both coroutine functions, and callable objects returning coroutines.
