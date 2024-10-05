@@ -10,7 +10,7 @@ from plug_in.exc import (
 )
 from plug_in.ioc.parameter import NothingParams, ParamsStateMachine
 from plug_in.types.proto.core_host import CoreHostProtocol
-from plug_in.types.proto.joint import Joint
+from plug_in.types.proto.core_plugin import CorePluginProtocol
 from plug_in.types.proto.resolver import ParameterResolverProtocol
 
 
@@ -32,15 +32,23 @@ class ParameterResolver[**CallParams](ParameterResolverProtocol):
     def __init__(
         self,
         callable: Callable[CallParams, Any],
-        resolve_callback: Callable[[CoreHostProtocol], Callable[[], Joint]],
+        # resolve_callback: Callable[[CoreHostProtocol], Callable[[], Joint]],
+        plugin_lookup: Callable[[CoreHostProtocol], CorePluginProtocol],
         assert_resolver_ready: bool = False,
     ) -> None:
         self._state: ParamsStateMachine = NothingParams(
-            _callable=callable, _resolve_provider=resolve_callback
+            _callable=callable,
+            _plugin_lookup=plugin_lookup,  # _resolve_provider=resolve_callback
         )
+
+        self._should_use_async_bind = self._state.is_callable_a_coro_callable()
 
         # Try to advance
         self.try_finalize_state(assert_resolver_ready)
+
+    @property
+    def should_use_async_bind(self) -> bool:
+        return self._should_use_async_bind
 
     @property
     def state(self) -> ParamsStateMachine:
@@ -73,6 +81,11 @@ class ParameterResolver[**CallParams](ParameterResolverProtocol):
         some symbols (e.g. when they are used via `if TYPE_CHECKING: import ...`)
         or `plug_in` registry/router configuration is incorrect.
 
+        At any time, the [plug_in.exc.SyncPluginExpected][] can be raised, and
+        it will not be silenced when `False` is passed into `assert_resolver_ready`.
+        This exception should be usually propagated to the user, informing of
+        wrong plugin configuration.
+
         Raises:
             [.UnexpectedForwardRefError][]: Only of assert flag is set
             [.MissingMountError][]: Only of assert flag is set
@@ -81,6 +94,8 @@ class ParameterResolver[**CallParams](ParameterResolverProtocol):
                 a `plug_in`
             [.EmptyHostAnnotationError][]: Always when callable parameter marked
                 by a [.HostedMark][] has no annotation.
+            [plug_in.exc.SyncPluginExpected][]: Always when plugin associated with
+                hosted mark should be synchronous but is asynchronous.
 
         """
         while not self._state.is_final():
@@ -105,7 +120,51 @@ class ParameterResolver[**CallParams](ParameterResolverProtocol):
                 else:
                     return
 
-    def get_one_time_bind(
+    def get_one_time_bind_sync(
+        self, *args: CallParams.args, **kwargs: CallParams.kwargs
+    ) -> inspect.BoundArguments:
+        """
+        Get [inspect.BoundArguments][], with [.HosedMark][] default values
+        replaced with its resolved value. Resolving happens by calling
+        `replace_callback` given at initialization time. Default values are
+        applied.
+
+        Invoke this method with the same arguments that user invokes his `callable`.
+
+        Note that this method is intended to work with synchronous callables. If
+        async plugin is encountered, it may raise [plug_in.exc.SyncPluginExpected][].
+
+        Args:
+            args: The same positional arguments that original `callable` accepts
+            kwargs: The same keyword arguments that original `callable` accepts
+
+        Returns:
+            [inspect.BoundArguments][] object with applied defaults.
+        """
+        # At this stage resolver must be ready
+        self.try_finalize_state(assert_resolver_ready=True)
+        resolver_params = self._state.assert_final()
+        resolver_map = self._state.assert_final().sync_resolver_map()
+        sig = resolver_params.sig
+
+        # https://github.com/python/cpython/issues/85542
+        # Replace defaults filtering only hosts
+        new_sig = sig.replace(
+            parameters=[
+                (
+                    param.replace(default=resolver_map[param.name]())
+                    if param.name in resolver_map
+                    else param
+                )
+                for param in sig.parameters.values()
+            ]
+        )
+
+        arg_bind = new_sig.bind(*args, **kwargs)
+        arg_bind.apply_defaults()
+        return arg_bind
+
+    async def get_one_time_bind_async(
         self, *args: CallParams.args, **kwargs: CallParams.kwargs
     ) -> inspect.BoundArguments:
         """
@@ -126,7 +185,8 @@ class ParameterResolver[**CallParams](ParameterResolverProtocol):
         # At this stage resolver must be ready
         self.try_finalize_state(assert_resolver_ready=True)
         resolver_params = self._state.assert_final()
-        resolver_map = self._state.assert_final().resolver_map()
+        sync_resolver_map = resolver_params.sync_resolver_map()
+        async_resolver_map = resolver_params.async_resolver_map()
         sig = resolver_params.sig
 
         # https://github.com/python/cpython/issues/85542
@@ -134,9 +194,13 @@ class ParameterResolver[**CallParams](ParameterResolverProtocol):
         new_sig = sig.replace(
             parameters=[
                 (
-                    param.replace(default=resolver_map[param.name]())
-                    if param.name in resolver_map
-                    else param
+                    param.replace(default=sync_resolver_map[param.name]())
+                    if param.name in sync_resolver_map
+                    else (
+                        param.replace(default=(await async_resolver_map[param.name]()))
+                        if param.name in async_resolver_map
+                        else param
+                    )
                 )
                 for param in sig.parameters.values()
             ]

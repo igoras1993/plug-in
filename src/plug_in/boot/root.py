@@ -55,7 +55,7 @@ class BootstrapWizard(metaclass=_NoArgSingleton):
     def configure_root_registry(
         self,
         plugins: Sequence[
-            BindingCorePluginProtocol[Any] | ProvidingCorePluginProtocol[Any]
+            BindingCorePluginProtocol[Any, Any] | ProvidingCorePluginProtocol[Any, Any]
         ] = (),
     ) -> None:
         """
@@ -96,7 +96,7 @@ class BootstrapWizard(metaclass=_NoArgSingleton):
         self,
         router: RootRouter,
         plugins: Sequence[
-            BindingCorePluginProtocol[Any] | ProvidingCorePluginProtocol[Any]
+            BindingCorePluginProtocol[Any, Any] | ProvidingCorePluginProtocol[Any, Any]
         ],
     ) -> RootRegistry:
         """

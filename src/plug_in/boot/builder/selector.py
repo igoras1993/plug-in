@@ -12,32 +12,51 @@ from plug_in.core.plug import CorePlug
 from plug_in.core.plugin import DirectCorePlugin, FactoryCorePlugin, LazyCorePlugin
 
 
-class PluginSelector[P](PluginSelectorProtocol, TypedPluginSelectorProtocol):
-    def __init__(self, provider: P, sub: type[P] | Hashable, *marks: Hashable):
-        self._provider = provider
-        self._sub = sub
-        self._marks = marks
-
-    def directly(self) -> DirectCorePlugin[P]:
-        """
-        Create [.DirectCorePlugin][]. This method implements both protocols.
-        """
-        return DirectCorePlugin(
-            CorePlug(self._provider), CoreHost(self._sub, self._marks)
-        )
-
-
-class ProvidingPluginSelector[P](
-    ProvidingPluginSelectorProtocol, TypedProvidingPluginSelectorProtocol
+class PluginSelector[P, MetaData](
+    PluginSelectorProtocol[P, MetaData], TypedPluginSelectorProtocol[P, MetaData]
 ):
     def __init__(
-        self, provider: Callable[[], P], sub: Hashable | type[P], *marks: Hashable
+        self,
+        provider: P,
+        sub: type[P] | Hashable,
+        *marks: Hashable,
+        metadata: MetaData = None,
     ):
         self._provider = provider
         self._sub = sub
         self._marks = marks
+        self._metadata = metadata
 
-    def directly(self) -> DirectCorePlugin[Callable[[], P]] | NotImplementedType:
+    def directly(self) -> DirectCorePlugin[P, MetaData]:
+        """
+        Create [.DirectCorePlugin][]. This method implements both protocols.
+        """
+        return DirectCorePlugin(
+            CorePlug(self._provider),
+            CoreHost(self._sub, self._marks),
+            _metadata=self._metadata,
+        )
+
+
+class ProvidingPluginSelector[P, MetaData](
+    ProvidingPluginSelectorProtocol[P, MetaData],
+    TypedProvidingPluginSelectorProtocol[P, MetaData],
+):
+    def __init__(
+        self,
+        provider: Callable[[], P],
+        sub: Hashable | type[P],
+        *marks: Hashable,
+        metadata: MetaData = None,
+    ):
+        self._provider = provider
+        self._sub = sub
+        self._marks = marks
+        self._metadata = metadata
+
+    def directly(
+        self,
+    ) -> DirectCorePlugin[Callable[[], P], MetaData] | NotImplementedType:
         """
         Create [.DirectCorePlugin][] or fail for not allowed policy. This
         method implements both protocols.
@@ -79,10 +98,11 @@ class ProvidingPluginSelector[P](
         return DirectCorePlugin(
             CorePlug(self._provider),
             CoreHost(self._sub, self._marks),
+            _metadata=self._metadata,
         )
 
     @overload
-    def via_provider(self, policy: Literal["lazy"]) -> LazyCorePlugin[P]:
+    def via_provider(self, policy: Literal["lazy"]) -> LazyCorePlugin[P, MetaData]:
         """
         Create [.LazyCorePlugin][] for non-obvious host type. Your plug
         callable will be invoked once host subject is requested in runtime,
@@ -94,7 +114,9 @@ class ProvidingPluginSelector[P](
         ...
 
     @overload
-    def via_provider(self, policy: Literal["factory"]) -> FactoryCorePlugin[P]:
+    def via_provider(
+        self, policy: Literal["factory"]
+    ) -> FactoryCorePlugin[P, MetaData]:
         """
         Create [.FactoryCorePlugin][] for non-obvious host type. Your plug
         callable will be invoked every time host subject is requested in runtime.
@@ -105,16 +127,20 @@ class ProvidingPluginSelector[P](
 
     def via_provider(
         self, policy: Literal["lazy", "factory"]
-    ) -> FactoryCorePlugin[P] | LazyCorePlugin[P]:
+    ) -> FactoryCorePlugin[P, MetaData] | LazyCorePlugin[P, MetaData]:
 
         match policy:
             case "lazy":
                 return LazyCorePlugin(
-                    CorePlug(self._provider), CoreHost(self._sub, self._marks)
+                    CorePlug(self._provider),
+                    CoreHost(self._sub, self._marks),
+                    _metadata=self._metadata,
                 )
             case "factory":
                 return FactoryCorePlugin(
-                    CorePlug(self._provider), CoreHost(self._sub, self._marks)
+                    CorePlug(self._provider),
+                    CoreHost(self._sub, self._marks),
+                    _metadata=self._metadata,
                 )
             case _:
                 raise RuntimeError(f"{policy=} is not implemented")

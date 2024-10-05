@@ -5,10 +5,10 @@ from typing import Callable, Hashable, Literal, Protocol, overload
 from plug_in.core.plugin import DirectCorePlugin, FactoryCorePlugin, LazyCorePlugin
 
 
-class PluginSelectorProtocol[P](Protocol):
+class PluginSelectorProtocol[P, MetaData](Protocol):
 
     @abstractmethod
-    def directly(self) -> DirectCorePlugin[P]:
+    def directly(self) -> DirectCorePlugin[P, MetaData]:
         """
         Create [.DirectCorePlugin][] for non-obvious host type. Please
         revise plugin configuration is such case.
@@ -18,20 +18,20 @@ class PluginSelectorProtocol[P](Protocol):
         ...
 
 
-class TypedPluginSelectorProtocol[P](Protocol):
+class TypedPluginSelectorProtocol[P, MetaData](Protocol):
 
     @abstractmethod
-    def directly(self) -> DirectCorePlugin[P]:
+    def directly(self) -> DirectCorePlugin[P, MetaData]:
         """
         Create [.DirectCorePlugin][] for host of well known subject type.
         """
         ...
 
 
-class ProvidingPluginSelectorProtocol[P](Protocol):
+class ProvidingPluginSelectorProtocol[P, MetaData](Protocol):
 
     @abstractmethod
-    def directly(self) -> DirectCorePlugin[Callable[[], P]]:
+    def directly(self) -> DirectCorePlugin[Callable[[], P], MetaData]:
         """
         Create [.DirectCorePlugin][] for non-obvious host type. Please
         revise plugin configuration is such case. This plugin routine is
@@ -43,7 +43,7 @@ class ProvidingPluginSelectorProtocol[P](Protocol):
 
     @overload
     @abstractmethod
-    def via_provider(self, policy: Literal["lazy"]) -> LazyCorePlugin[P]:
+    def via_provider(self, policy: Literal["lazy"]) -> LazyCorePlugin[P, MetaData]:
         """
         Create [.LazyCorePlugin][] for non-obvious host type. Your plug
         callable will be invoked once host subject is requested in runtime,
@@ -56,7 +56,9 @@ class ProvidingPluginSelectorProtocol[P](Protocol):
 
     @overload
     @abstractmethod
-    def via_provider(self, policy: Literal["factory"]) -> FactoryCorePlugin[P]:
+    def via_provider(
+        self, policy: Literal["factory"]
+    ) -> FactoryCorePlugin[P, MetaData]:
         """
         Create [.FactoryCorePlugin][] for non-obvious host type. Your plug
         callable will be invoked every time host subject is requested in runtime.
@@ -66,7 +68,7 @@ class ProvidingPluginSelectorProtocol[P](Protocol):
         ...
 
 
-class TypedProvidingPluginSelectorProtocol[P](Protocol):
+class TypedProvidingPluginSelectorProtocol[P, MetaData](Protocol):
 
     @abstractmethod
     def directly(self) -> NotImplementedType:
@@ -82,7 +84,7 @@ class TypedProvidingPluginSelectorProtocol[P](Protocol):
 
     @overload
     @abstractmethod
-    def via_provider(self, policy: Literal["lazy"]) -> LazyCorePlugin[P]:
+    def via_provider(self, policy: Literal["lazy"]) -> LazyCorePlugin[P, MetaData]:
         """
         Create [.LazyCorePlugin][] for well-known host. Your plug
         callable will be invoked once host subject is requested in runtime,
@@ -94,7 +96,9 @@ class TypedProvidingPluginSelectorProtocol[P](Protocol):
 
     @overload
     @abstractmethod
-    def via_provider(self, policy: Literal["factory"]) -> FactoryCorePlugin[P]:
+    def via_provider(
+        self, policy: Literal["factory"]
+    ) -> FactoryCorePlugin[P, MetaData]:
         """
         Create [.FactoryCorePlugin][] for well-known host. Your plug
         callable will be invoked every time host subject is requested in runtime.
@@ -102,12 +106,12 @@ class TypedProvidingPluginSelectorProtocol[P](Protocol):
         ...
 
 
-class PlugFacadeProtocol[T](Protocol):
+class PlugFacadeProtocol[T, MetaData](Protocol):
     @overload
     @abstractmethod
     def into(
         self, subject: type[T], *marks: Hashable
-    ) -> TypedPluginSelectorProtocol[T]:
+    ) -> TypedPluginSelectorProtocol[T, MetaData]:
         """
         Plug Your instance into host of well-known type. Proceed with
         `.directly` / `.via_provider` to finish plugin creation.
@@ -116,7 +120,9 @@ class PlugFacadeProtocol[T](Protocol):
 
     @overload
     @abstractmethod
-    def into(self, subject: Hashable, *marks: Hashable) -> PluginSelectorProtocol[T]:
+    def into(
+        self, subject: Hashable, *marks: Hashable
+    ) -> PluginSelectorProtocol[T, MetaData]:
         """
         Plug Your instance into host of NON-OBVIOUS type. Proceed with
         `.directly` / `.via_provider` to finish plugin creation, but be careful
@@ -125,12 +131,12 @@ class PlugFacadeProtocol[T](Protocol):
         ...
 
 
-class ProvidingPlugFacadeProtocol[T](Protocol):
+class ProvidingPlugFacadeProtocol[T, MetaData](Protocol):
     @overload
     @abstractmethod
     def into(
         self, subject: type[T], *marks: Hashable
-    ) -> TypedProvidingPluginSelectorProtocol[T]:
+    ) -> TypedProvidingPluginSelectorProtocol[T, MetaData]:
         """
         Plug the result of Your callable into well known host type.
         Proceed with `.via_provider` (or sometimes with `.directly`) to
@@ -142,7 +148,7 @@ class ProvidingPlugFacadeProtocol[T](Protocol):
     @abstractmethod
     def into(
         self, subject: Hashable, *marks: Hashable
-    ) -> ProvidingPluginSelectorProtocol[T]:
+    ) -> ProvidingPluginSelectorProtocol[T, MetaData]:
         """
         Plug the result of Your callable into NON-OBVIOUS host type.
         Proceed with `.via_provider` (or sometimes with `.directly`) to

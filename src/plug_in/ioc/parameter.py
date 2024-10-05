@@ -4,16 +4,18 @@ from dataclasses import dataclass
 from enum import StrEnum
 import inspect
 import logging
-from typing import Any, Callable, Literal, Self, cast, get_type_hints
+from typing import Any, Awaitable, Callable, Literal, Self, cast, get_type_hints
 from plug_in.core.host import CoreHost
 from plug_in.exc import (
     EmptyHostAnnotationError,
     ObjectNotSupported,
+    SyncPluginExpected,
     UnexpectedForwardRefError,
 )
 from plug_in.ioc.hosted_mark import HostedMark
-from plug_in.tools.introspect import contains_forward_refs
+from plug_in.tools.introspect import contains_forward_refs, is_coroutine_callable
 from plug_in.types.proto.core_host import CoreHostProtocol
+from plug_in.types.proto.core_plugin import CorePluginProtocol
 from plug_in.types.proto.hosted_mark import HostedMarkProtocol
 from plug_in.types.proto.joint import Joint
 from plug_in.types.proto.parameter import (
@@ -27,17 +29,17 @@ class ParamsStateType(StrEnum):
     NOTHING_READY = "NOTHING_READY"
     DEFAULT_READY = "DEFAULT_READY"
     HOST_READY = "HOST_READY"
-    RESOLVER_READY = "RESOLVER_READY"
+    PLUGIN_READY = "PLUGIN_READY"
 
 
 @dataclass
-class ResolverParamStage[T: HostedMarkProtocol, JointType: Joint](
-    FinalParamStageProtocol[T, JointType]
+class PluginParamStage[T: HostedMarkProtocol, JointType: Joint, MetaDataType](
+    FinalParamStageProtocol[T, JointType, MetaDataType]
 ):
     _name: str
     _default: T
     _host: CoreHostProtocol[JointType]
-    _resolver: Callable[[], JointType]
+    _plugin: CorePluginProtocol[JointType, MetaDataType]
 
     @property
     def name(self) -> str:
@@ -52,8 +54,8 @@ class ResolverParamStage[T: HostedMarkProtocol, JointType: Joint](
         return self._host
 
     @property
-    def resolver(self) -> Callable[[], JointType]:
-        return self._resolver
+    def plugin(self) -> CorePluginProtocol[JointType, MetaDataType]:
+        return self._plugin
 
 
 @dataclass
@@ -106,54 +108,46 @@ class ParamsStateMachine(ABC, ParamsStateMachineProtocol):
 
     @property
     @abstractmethod
-    def resolve_provider(self) -> Callable[[CoreHostProtocol], Callable[[], Joint]]: ...
-
-    @property
-    @abstractmethod
     def state_type(self) -> ParamsStateType: ...
 
     @abstractmethod
     def advance(self) -> "ParamsStateMachine": ...
 
     def is_final(self) -> bool:
-        return self.state_type == ParamsStateType.RESOLVER_READY
+        return self.state_type == ParamsStateType.PLUGIN_READY
 
-    def assert_final(self) -> "ResolverParams":
+    def assert_final(self) -> "PluginParams":
         """
         Return self if it is a final state, or raise ValueError.
         """
         if self.is_final():
-            return cast(ResolverParams, self)
+            return cast(PluginParams, self)
         else:
-            raise ValueError("This is not a final state.")
+            raise AssertionError("This is not a final state.")
 
-    def finalize(self) -> "ResolverParams":
+    def finalize(self) -> "PluginParams":
         """
         Advance to the final state or raise any of the advancing stage exceptions.
         """
         state = self
 
         while not state.is_final():
-            state.advance()
+            state = state.advance()
 
         return state.assert_final()
 
 
 @dataclass
-class ResolverParams[T: HostedMarkProtocol, JointType: Joint](
-    ParamsStateMachine, FinalParamsProtocol
-):
-    _params: list[ResolverParamStage[T, JointType]]
+class PluginParams[T: HostedMarkProtocol](ParamsStateMachine, FinalParamsProtocol):
+    _params: list[PluginParamStage[T, Joint, Any]]
     _type_hints: dict[str, Any]
     _sig: inspect.Signature
     _callable: Callable
-    _resolve_provider: Callable[[CoreHostProtocol], Callable[[], Joint]]
-    _state_type: Literal[ParamsStateType.RESOLVER_READY] = (
-        ParamsStateType.RESOLVER_READY
-    )
+    _plugin_lookup: Callable[[CoreHostProtocol[Any]], CorePluginProtocol[Joint, Any]]
+    _state_type: Literal[ParamsStateType.PLUGIN_READY] = ParamsStateType.PLUGIN_READY
 
     @property
-    def params(self) -> list[ResolverParamStage[T, JointType]]:
+    def params(self) -> list[PluginParamStage[T, Joint, Any]]:
         return self._params
 
     @property
@@ -169,40 +163,104 @@ class ResolverParams[T: HostedMarkProtocol, JointType: Joint](
         return self._callable
 
     @property
-    def resolve_provider(self) -> Callable[[CoreHostProtocol], Callable[[], Joint]]:
-        return self._resolve_provider
+    def plugin_lookup(self) -> Callable[[CoreHostProtocol], CorePluginProtocol]:
+        return self._plugin_lookup
 
     @property
-    def state_type(self) -> Literal[ParamsStateType.RESOLVER_READY]:
+    def state_type(self) -> Literal[ParamsStateType.PLUGIN_READY]:
         return self._state_type
+
+    def is_callable_a_coro_callable(self) -> bool:
+        """
+        Returns `True` if callable returns a coroutine.
+        """
+        return is_coroutine_callable(self.callable)
 
     def advance(self) -> Self:
         return self
 
-    def resolver_map(self) -> dict[str, Callable[[], JointType]]:
+    def _get_resolver_map_cache(
+        self,
+    ) -> tuple[
+        dict[str, Callable[[], Joint]],
+        dict[str, Callable[[], Awaitable[Joint]]],
+    ]:
         """
-        Returns prepared map of parameter names to their resolvers.
+        Return tuple of both sync and async resolver mappings or raise AttributeError
+        when cache is empty.
+        """
+        return getattr(self, "_resolver_cache")
+
+    def _build_resolver_map_cache(
+        self,
+    ) -> tuple[
+        dict[str, Callable[[], Joint]],
+        dict[str, Callable[[], Awaitable[Joint]]],
+    ]:
+        """
+        Calculate both resolver mappings (sync and async), store it in cache and return
+        tuple of them (sync_map, async_map)
+        """
+        sync_map: dict[str, Callable[[], Joint]] = {}
+        async_map: dict[str, Callable[[], Awaitable[Joint]]] = {}
+
+        for param in self.params:
+            try:
+                sync_plugin = param.plugin.assert_sync()
+            except AssertionError:
+                try:
+                    async_plugin = param.plugin.assert_async()
+                except AssertionError as e:
+                    raise RuntimeError(
+                        f"{param.plugin=} is neither sync or async, panic."
+                    ) from e
+                else:
+                    # Async path
+                    async_map[param.name] = async_plugin.provide
+            else:
+                # Sync path
+                sync_map[param.name] = sync_plugin.provide
+
+        both = (sync_map, async_map)
+        setattr(self, "_resolver_cache", both)
+        return both
+
+    def sync_resolver_map(
+        self,
+    ) -> dict[str, Callable[[], Joint]]:
+        """
+        Returns prepared map of parameter names to their synchronous resolvers.
         """
         try:
-            _resolver_map = getattr(self, "_resolver_map_cache")
+            sync_map, _ = self._get_resolver_map_cache()
         except AttributeError:
-            _resolver_map = {param.name: param.resolver for param in self.params}
-            setattr(self, "_resolver_map_cache", _resolver_map)
+            sync_map, _ = self._build_resolver_map_cache()
 
-        return copy(_resolver_map)
+        return copy(sync_map)
+
+    def async_resolver_map(self) -> dict[str, Callable[[], Awaitable[Joint]]]:
+        """
+        Returns prepared map of parameter names to their asynchronous resolvers.
+        """
+        try:
+            _, async_map = self._get_resolver_map_cache()
+        except AttributeError:
+            _, async_map = self._build_resolver_map_cache()
+
+        return copy(async_map)
 
 
 @dataclass
-class HostParams[T: HostedMarkProtocol, JointType: Joint](ParamsStateMachine):
-    _params: list[HostParamStage[T, JointType]]
+class HostParams[T: HostedMarkProtocol](ParamsStateMachine):
+    _params: list[HostParamStage[T, Joint]]
     _type_hints: dict[str, Any]
     _sig: inspect.Signature
     _callable: Callable
-    _resolve_provider: Callable[[CoreHostProtocol], Callable[[], Joint]]
+    _plugin_lookup: Callable[[CoreHostProtocol[Any]], CorePluginProtocol[Joint, Any]]
     _state_type: Literal[ParamsStateType.HOST_READY] = ParamsStateType.HOST_READY
 
     @property
-    def params(self) -> list[HostParamStage[T, JointType]]:
+    def params(self) -> list[HostParamStage[T, Joint]]:
         return self._params
 
     @property
@@ -218,37 +276,76 @@ class HostParams[T: HostedMarkProtocol, JointType: Joint](ParamsStateMachine):
         return self._callable
 
     @property
-    def resolve_provider(self) -> Callable[[CoreHostProtocol], Callable[[], Joint]]:
-        return self._resolve_provider
+    def plugin_lookup(self) -> Callable[[CoreHostProtocol], CorePluginProtocol]:
+        return self._plugin_lookup
 
     @property
     def state_type(self) -> Literal[ParamsStateType.HOST_READY]:
         return self._state_type
 
-    def advance(self) -> ResolverParams:
+    def is_callable_a_coro_callable(self) -> bool:
+        """
+        Returns `True` if callable returns a coroutine.
+        """
+        return is_coroutine_callable(self.callable)
+
+    def advance(self) -> PluginParams:
         """
         Advancing this stage can raise plugin-lookup related exceptions.
 
         Raises:
             [plug_in.exc.MissingMountError][]: ...
             [plug_in.exc.MissingPluginError][]: ...
+            [plug_in.exc.SyncPluginExpected][]: ...
         """
 
-        resolver_ready_stages = [
-            ResolverParamStage(
-                _name=staged_host_param.name,
-                _default=staged_host_param.default,
-                _host=staged_host_param.host,
-                _resolver=self.resolve_provider(staged_host_param.host),
-            )
-            for staged_host_param in self.params
-        ]
+        plugin_ready_stages: list[PluginParamStage] = []
+        will_resolve_in_coro = self.is_callable_a_coro_callable()
 
-        return ResolverParams(
+        if not will_resolve_in_coro:
+            for staged_host_param in self.params:
+                # Every plugin must be synchronous
+                plugin = self.plugin_lookup(staged_host_param.host)
+                try:
+                    plugin = plugin.assert_sync()
+                except AssertionError as e:
+                    raise SyncPluginExpected(
+                        "Parameter state machine encountered a non-sync plugin for a "
+                        "mark hosted in synchronous callable. This is not possible to "
+                        "resolve async plugin in scope of sync callable. Use synchronous "
+                        "plugin for this mark instead.\n"
+                        f"mark={staged_host_param.default}\n"
+                        f"{plugin=}\n"
+                        f"{staged_host_param.name=}\n"
+                        f"{staged_host_param.host=}\n"
+                        f"{self.callable=}\n"
+                        f"{self.sig=}"
+                    ) from e
+
+                param_stage = PluginParamStage(
+                    _name=staged_host_param.name,
+                    _default=staged_host_param.default,
+                    _host=staged_host_param.host,
+                    _plugin=plugin,
+                )
+                plugin_ready_stages.append(param_stage)
+
+        else:
+            for staged_host_param in self.params:
+                # Can be sync and async
+                param_stage = PluginParamStage(
+                    _name=staged_host_param.name,
+                    _default=staged_host_param.default,
+                    _host=staged_host_param.host,
+                    _plugin=self.plugin_lookup(staged_host_param.host),
+                )
+                plugin_ready_stages.append(param_stage)
+
+        return PluginParams(
             _callable=self.callable,
-            _resolve_provider=self.resolve_provider,
-            _state_type=ParamsStateType.RESOLVER_READY,
-            _params=resolver_ready_stages,
+            _plugin_lookup=self.plugin_lookup,
+            _state_type=ParamsStateType.PLUGIN_READY,
+            _params=plugin_ready_stages,
             _type_hints=self.type_hints,
             _sig=self.sig,
         )
@@ -259,7 +356,7 @@ class DefaultParams[T: HostedMarkProtocol](ParamsStateMachine):
     _params: list[DefaultParamStage[T]]
     _sig: inspect.Signature
     _callable: Callable
-    _resolve_provider: Callable[[CoreHostProtocol], Callable[[], Joint]]
+    _plugin_lookup: Callable[[CoreHostProtocol[Any]], CorePluginProtocol[Joint, Any]]
     _state_type: Literal[ParamsStateType.DEFAULT_READY] = ParamsStateType.DEFAULT_READY
 
     @property
@@ -275,12 +372,18 @@ class DefaultParams[T: HostedMarkProtocol](ParamsStateMachine):
         return self._callable
 
     @property
-    def resolve_provider(self) -> Callable[[CoreHostProtocol], Callable[[], Joint]]:
-        return self._resolve_provider
+    def plugin_lookup(self) -> Callable[[CoreHostProtocol], CorePluginProtocol]:
+        return self._plugin_lookup
 
     @property
     def state_type(self) -> Literal[ParamsStateType.DEFAULT_READY]:
         return self._state_type
+
+    def is_callable_a_coro_callable(self) -> bool:
+        """
+        Returns `True` if callable returns a coroutine.
+        """
+        return is_coroutine_callable(self.callable)
 
     def advance(self) -> HostParams:
         """
@@ -309,7 +412,7 @@ class DefaultParams[T: HostedMarkProtocol](ParamsStateMachine):
                 "\n\n%s",
                 self.sig,
                 self.callable,
-                self.resolve_provider,
+                self.plugin_lookup,
             )
 
             raise RuntimeError(
@@ -336,7 +439,7 @@ class DefaultParams[T: HostedMarkProtocol](ParamsStateMachine):
                     hints,
                     self.sig,
                     self.callable,
-                    self.resolve_provider,
+                    self.plugin_lookup,
                 )
                 raise RuntimeError(
                     "Forward references still present on type hints. Please report "
@@ -369,7 +472,7 @@ class DefaultParams[T: HostedMarkProtocol](ParamsStateMachine):
 
         return HostParams(
             _callable=self.callable,
-            _resolve_provider=self.resolve_provider,
+            _plugin_lookup=self.plugin_lookup,
             _state_type=ParamsStateType.HOST_READY,
             _params=host_ready_stages,
             _type_hints=hints,
@@ -380,7 +483,7 @@ class DefaultParams[T: HostedMarkProtocol](ParamsStateMachine):
 @dataclass
 class NothingParams(ParamsStateMachine):
     _callable: Callable
-    _resolve_provider: Callable[[CoreHostProtocol], Callable[[], Joint]]
+    _plugin_lookup: Callable[[CoreHostProtocol], CorePluginProtocol]
     _state_type: Literal[ParamsStateType.NOTHING_READY] = ParamsStateType.NOTHING_READY
 
     @property
@@ -388,12 +491,18 @@ class NothingParams(ParamsStateMachine):
         return self._callable
 
     @property
-    def resolve_provider(self) -> Callable[[CoreHostProtocol], Callable[[], Joint]]:
-        return self._resolve_provider
+    def plugin_lookup(self) -> Callable[[CoreHostProtocol], CorePluginProtocol]:
+        return self._plugin_lookup
 
     @property
     def state_type(self) -> Literal[ParamsStateType.NOTHING_READY]:
         return self._state_type
+
+    def is_callable_a_coro_callable(self) -> bool:
+        """
+        Returns `True` if callable returns a coroutine.
+        """
+        return is_coroutine_callable(self.callable)
 
     def advance(self) -> DefaultParams:
         """
@@ -439,7 +548,7 @@ class NothingParams(ParamsStateMachine):
                 "\n\n%s",
                 _debug_sig,
                 self.callable,
-                self.resolve_provider,
+                self.plugin_lookup,
             )
 
             raise RuntimeError(
@@ -457,7 +566,7 @@ class NothingParams(ParamsStateMachine):
 
         return DefaultParams(
             _callable=self.callable,
-            _resolve_provider=self.resolve_provider,
+            _plugin_lookup=self.plugin_lookup,
             _state_type=ParamsStateType.DEFAULT_READY,
             _params=default_ready_stages,
             _sig=sig,

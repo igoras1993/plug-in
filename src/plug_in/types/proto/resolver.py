@@ -14,6 +14,14 @@ class ParameterResolverProtocol[**CallParams](Protocol):
     @abstractmethod
     def try_finalize_state(self, assert_resolver_ready: bool = False) -> None: ...
 
-    def get_one_time_bind(
+    @property
+    @abstractmethod
+    def should_use_async_bind(self) -> bool: ...
+
+    def get_one_time_bind_sync(
+        self, *args: CallParams.args, **kwargs: CallParams.kwargs
+    ) -> inspect.BoundArguments: ...
+
+    async def get_one_time_bind_async(
         self, *args: CallParams.args, **kwargs: CallParams.kwargs
     ) -> inspect.BoundArguments: ...

@@ -1,7 +1,9 @@
-from functools import partial, wraps
-from typing import Any, Callable, cast
+from functools import wraps
+from typing import Any, Awaitable, Callable, cast, overload
+
 from plug_in.exc import MissingMountError, MissingRouteError, RouterAlreadyMountedError
 from plug_in.types.proto.core_host import CoreHostProtocol
+from plug_in.types.proto.core_plugin import CorePluginProtocol
 from plug_in.types.proto.core_registry import CoreRegistryProtocol
 from plug_in.types.proto.resolver import ParameterResolverProtocol
 from plug_in.types.proto.router import RouterProtocol
@@ -38,7 +40,9 @@ class Router(RouterProtocol):
 
         return self._reg
 
-    def resolve[JointType: Joint](self, host: CoreHostProtocol[JointType]) -> JointType:
+    def resolve[
+        JointType: Joint
+    ](self, host: CoreHostProtocol[JointType]) -> JointType | Awaitable[JointType]:
         """
         Resolve a host via mounted registry.
 
@@ -49,33 +53,24 @@ class Router(RouterProtocol):
         reg = self.get_registry()
         return reg.resolve(host)
 
-    def _resolve_factory[
-        JointType: Joint
-    ](self, host: CoreHostProtocol[JointType]) -> Callable[[], JointType]:
-        """
-        Return a callable that resolves host via mounted registry
-        """
-        return partial(self.resolve, host)
+    def plugin_lookup(self, host: CoreHostProtocol) -> CorePluginProtocol:
+        return self.get_registry().plugin(host)
 
-    # def resolve_at(self, callable: Callable, host_mark: HostedMarkProtocol) -> Joint:
-    #     """
-    #     Resolve given host mark in context of some callable.
+    @overload
+    def _callable_route_factory[
+        R, **P
+    ](self, callable: Callable[P, Awaitable[R]]) -> Callable[P, Awaitable[R]]: ...
 
-    #     Raises:
-    #         [plug_in.exc.MissingMountError][]: ...
-    #         [plug_in.exc.MissingPluginError][]: ...
-    #     """
-    #     reg = self.get_registry()
-
-    #     # Simulate state progression
-    #     state = NothingParams(callable=callable, resolve_provider=reg.resolve)
-    #     state = state.finalize()
-    #     resolver_map = state.resolver_map()
-    #     return resolver_map[]
+    @overload
+    def _callable_route_factory[
+        R, **P
+    ](self, callable: Callable[P, R]) -> Callable[P, R]: ...
 
     def _callable_route_factory[
         R, **P
-    ](self, callable: Callable[P, R]) -> Callable[P, R]:
+    ](self, callable: Callable[P, R] | Callable[P, Awaitable[R]]) -> (
+        Callable[P, R] | Callable[P, Awaitable[R]]
+    ):
         """
         Create new callable that will have default values substituted by a plugin
         resolver.
@@ -89,22 +84,35 @@ class Router(RouterProtocol):
         """
         # Keep parameter resolver
         param_resolver = ParameterResolver(
-            callable=callable,
-            resolve_callback=self._resolve_factory,
+            callable=callable, plugin_lookup=self.plugin_lookup
         )
 
         self._routes[callable] = param_resolver
 
-        # Create wrapper for callable
-        @wraps(callable)
-        def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
-            # Get arg bind
-            bind = param_resolver.get_one_time_bind(*args, **kwargs)
+        if param_resolver.should_use_async_bind:
+            # Create async wrapper for callable
+            @wraps(callable)
+            async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+                # Get arg bind
+                bind = await param_resolver.get_one_time_bind_async(*args, **kwargs)
 
-            # Proceed with call
-            return callable(*bind.args, **bind.kwargs)
+                # Proceed with call
+                return await cast(Callable[P, Awaitable[R]], callable)(
+                    *bind.args, **bind.kwargs
+                )
 
-        return wrapper
+            return async_wrapper
+        else:
+            # Create wrapper for callable
+            @wraps(callable)
+            def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+                # Get arg bind
+                bind = param_resolver.get_one_time_bind_sync(*args, **kwargs)
+
+                # Proceed with call
+                return cast(Callable[P, R], callable)(*bind.args, **bind.kwargs)
+
+            return wrapper
 
     def manage[T: Manageable](self) -> Callable[[T], T]:
         """

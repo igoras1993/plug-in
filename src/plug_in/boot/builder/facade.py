@@ -18,15 +18,16 @@ from plug_in.boot.builder.selector import (
 )
 
 
-class PlugFacade[T](PlugFacadeProtocol[T]):
+class PlugFacade[T, MetaData](PlugFacadeProtocol[T, MetaData]):
 
-    def __init__(self, provider: T):
+    def __init__(self, provider: T, metadata: MetaData = None):
         self._provider = provider
+        self._metadata = metadata
 
     @overload
     def into(
         self, subject: type[T], *marks: Hashable
-    ) -> TypedPluginSelectorProtocol[T]:
+    ) -> TypedPluginSelectorProtocol[T, MetaData]:
         """
         Plug Your instance into host of well-known type. Proceed with
         `.directly` / `.via_provider` to finish plugin creation.
@@ -34,7 +35,9 @@ class PlugFacade[T](PlugFacadeProtocol[T]):
         ...
 
     @overload
-    def into(self, subject: Hashable, *marks: Hashable) -> PluginSelectorProtocol[T]:
+    def into(
+        self, subject: Hashable, *marks: Hashable
+    ) -> PluginSelectorProtocol[T, MetaData]:
         """
         Plug Your instance into host of NON-OBVIOUS type. Proceed with
         `.directly` / `.via_provider` to finish plugin creation, but be careful
@@ -47,21 +50,22 @@ class PlugFacade[T](PlugFacadeProtocol[T]):
         subject: Union[Hashable, type[T]],
         *marks: Hashable,
     ) -> Union[
-        PluginSelectorProtocol[T],
-        TypedPluginSelectorProtocol[T],
+        PluginSelectorProtocol[T, MetaData],
+        TypedPluginSelectorProtocol[T, MetaData],
     ]:
-        return PluginSelector(self._provider, subject, *marks)
+        return PluginSelector(self._provider, subject, *marks, metadata=self._metadata)
 
 
-class ProvidingPlugFacade[T](ProvidingPlugFacadeProtocol[T]):
+class ProvidingPlugFacade[T, MetaData](ProvidingPlugFacadeProtocol[T, MetaData]):
 
-    def __init__(self, provider: Callable[[], T]):
+    def __init__(self, provider: Callable[[], T], metadata: MetaData = None):
         self._provider = provider
+        self._metadata = metadata
 
     @overload
     def into(
         self, subject: type[T], *marks: Hashable
-    ) -> TypedProvidingPluginSelectorProtocol[T]:
+    ) -> TypedProvidingPluginSelectorProtocol[T, MetaData]:
         """
         Plug the result of Your callable into well known host type.
         Proceed with `.via_provider` (or sometimes with `.directly`) to
@@ -74,7 +78,7 @@ class ProvidingPlugFacade[T](ProvidingPlugFacadeProtocol[T]):
     @overload
     def into(
         self, subject: Hashable, *marks: Hashable
-    ) -> ProvidingPluginSelectorProtocol[T]:
+    ) -> ProvidingPluginSelectorProtocol[T, MetaData]:
         """
         Plug the result of Your callable into NON-OBVIOUS host type.
         Proceed with `.via_provider` (or sometimes with `.directly`) to
@@ -88,7 +92,9 @@ class ProvidingPlugFacade[T](ProvidingPlugFacadeProtocol[T]):
         subject: Union[Hashable, type[T]],
         *marks: Hashable,
     ) -> Union[
-        ProvidingPluginSelectorProtocol[T],
-        TypedProvidingPluginSelectorProtocol[T],
+        ProvidingPluginSelectorProtocol[T, MetaData],
+        TypedProvidingPluginSelectorProtocol[T, MetaData],
     ]:
-        return ProvidingPluginSelector(self._provider, subject, *marks)
+        return ProvidingPluginSelector(
+            self._provider, subject, *marks, metadata=self._metadata
+        )

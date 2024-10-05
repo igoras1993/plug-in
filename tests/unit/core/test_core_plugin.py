@@ -28,11 +28,44 @@ from plug_in.types.proto.core_plugin import CorePluginProtocol
         ),
     ],
 )
-def test_plugin_provide(plugin: CorePluginProtocol[Any], expected: Any):
+def test_plugin_provide(plugin: CorePluginProtocol[Any, Any], expected: Any):
     """
     Check if [.CorePluginProtocol.provide][] call equals to the expected value.
     """
+    assert plugin.assert_sync().provide() == expected
     assert plugin.provide() == expected
+
+
+async def _async_plug() -> str:
+    return "Dup"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "plugin, expected",
+    [
+        (
+            create_core_plugin(
+                CorePlug(_async_plug), CoreHost(str), PluginPolicy.LAZY_ASYNC
+            ),
+            "Dup",
+        ),
+        (
+            create_core_plugin(
+                CorePlug(_async_plug), CoreHost(str), PluginPolicy.FACTORY_ASYNC
+            ),
+            "Dup",
+        ),
+    ],
+)
+async def test_plugin_async_provide(
+    plugin: CorePluginProtocol[Any, Any], expected: Any
+):
+    """
+    Check if [.CorePluginProtocol.provide][] call equals to the expected value.
+    """
+    assert await plugin.assert_async().provide() == expected
+    assert await plugin.provide() == expected
 
 
 @pytest.mark.parametrize(
