@@ -20,6 +20,7 @@ class CoreRegistryProtocol(Protocol):
         """
         ...
 
+    @abstractmethod
     async def async_resolve[
         JointType: Joint
     ](self, host: CoreHostProtocol[JointType]) -> JointType:
@@ -32,6 +33,7 @@ class CoreRegistryProtocol(Protocol):
         """
         ...
 
+    @abstractmethod
     def sync_resolve[
         JointType: Joint
     ](self, host: CoreHostProtocol[JointType]) -> JointType:
@@ -48,6 +50,20 @@ class CoreRegistryProtocol(Protocol):
     def plugin[
         JointType: Joint
     ](self, host: CoreHostProtocol[JointType]) -> CorePluginProtocol[JointType, Any]:
+        """
+        Raises:
+            [plug_in.exc.MissingPluginError][]
+
+        """
+        ...
+
+
+class AsyncCoreRegistryProtocol(CoreRegistryProtocol, Protocol):
+
+    @abstractmethod
+    async def resolve[
+        JointType: Joint
+    ](self, host: CoreHostProtocol[JointType]) -> JointType:
         """
         Raises:
             [plug_in.exc.MissingPluginError][]

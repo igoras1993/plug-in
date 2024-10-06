@@ -8,7 +8,10 @@ from plug_in.types.proto.core_plugin import (
     BindingCorePluginProtocol,
     ProvidingCorePluginProtocol,
 )
-from plug_in.types.proto.core_registry import CoreRegistryProtocol
+from plug_in.types.proto.core_registry import (
+    AsyncCoreRegistryProtocol,
+    CoreRegistryProtocol,
+)
 from plug_in.types.proto.joint import Joint
 
 
@@ -180,3 +183,18 @@ class CoreRegistry(CoreRegistryProtocol):
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(\n\t{self._original_plugins}"
+
+
+class AsyncCoreRegistry(CoreRegistry, AsyncCoreRegistryProtocol):
+
+    async def resolve[
+        JointType: Joint
+    ](self, host: CoreHostProtocol[JointType]) -> JointType:
+        """
+        Resolve host into its provided value.
+
+        Raises:
+            [plug_in.exc.MissingPluginError][] if plugin does not exit
+
+        """
+        return await self.async_resolve(host=host)
