@@ -73,5 +73,5 @@ class BootError(PlugInError):
     """
 
 
-class ConfigError(BootError):
+class BootConfigError(BootError):
     pass

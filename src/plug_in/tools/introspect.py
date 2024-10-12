@@ -79,5 +79,5 @@ def is_coroutine_callable(obj: Any) -> TypeGuard[Callable[..., Awaitable[Any]]]:
     Works for both coroutine functions, and callable objects returning coroutines.
     """
     return asyncio.iscoroutinefunction(obj) or (
-        callable(obj) and asyncio.iscoroutinefunction(obj.__call__)
+        callable(obj) and asyncio.iscoroutinefunction(obj.__call__)  # type: ignore
     )
