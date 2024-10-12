@@ -6,6 +6,7 @@ from plug_in.types.proto.core_host import CoreHostProtocol
 from plug_in.types.proto.core_plugin import (
     AsyncCorePluginProtocol,
     BindingCorePluginProtocol,
+    CorePluginProtocol,
     ProvidingCorePluginProtocol,
 )
 from plug_in.types.proto.core_registry import (
@@ -29,11 +30,7 @@ class CoreRegistry(CoreRegistryProtocol):
 
     def __init__(
         self,
-        plugins: Iterable[
-            BindingCorePluginProtocol[Any, Any]
-            | ProvidingCorePluginProtocol[Any, Any]
-            | AsyncCorePluginProtocol[Any, Any]
-        ],
+        plugins: Iterable[CorePluginProtocol[Any, Any]],
         #  TODO: Consider adding verify_joints param
         #  verify_joints: bool = True,
     ) -> None:
@@ -101,11 +98,7 @@ class CoreRegistry(CoreRegistryProtocol):
 
     def plugin[
         JointType: Joint
-    ](self, host: CoreHostProtocol[JointType]) -> (
-        BindingCorePluginProtocol[Any, Any]
-        | ProvidingCorePluginProtocol[Any, Any]
-        | AsyncCorePluginProtocol[Any, Any]
-    ):
+    ](self, host: CoreHostProtocol[JointType]) -> CorePluginProtocol[Any, Any]:
         """
         Raises:
             [plug_in.exc.MissingPluginError][]

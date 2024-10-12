@@ -97,6 +97,10 @@ class CorePluginProtocol[JointType: Joint, MetaDataType](Protocol):
     @abstractmethod
     def provide(self) -> JointType | Awaitable[JointType]: ...
 
+    @property
+    @abstractmethod
+    def host(self) -> CoreHostProtocol[JointType]: ...
+
     @abstractmethod
     def assert_sync(
         self,
