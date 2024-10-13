@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "pyplugin-lib"
-version = "0.1.0"
-description = "Pythonic inversion of control targeting plugins and adapters application development style"
+version = "0.2.0"
+description = "Pythonic inversion of control targeting ports and adapters application development style"
 authors = ["kuta.0 <igor.kantorski@gmail.com>"]
 license = "BSD-3-Clause"
 readme = "README.md"
