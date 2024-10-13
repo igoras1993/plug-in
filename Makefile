@@ -20,6 +20,9 @@ style-check:
 format:
 	poetry run black .
 
+# Docs
+changelog:
+	poetry run git-cliff --prepend CHANGELOG.md --tag ${NEW_TAG} ${LAST_TAG}..HEAD
 
 # Testing things
 test: test-pytest
