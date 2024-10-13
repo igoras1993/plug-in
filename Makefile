@@ -31,3 +31,10 @@ test-pytest:
 	poetry run pytest tests
 
 check-all: style-check type-check test
+
+# Build
+build:
+	poetry build
+
+publish:
+	poetry publish
