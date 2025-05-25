@@ -1,14 +1,13 @@
 [tool.poetry]
 name = "pyplugin-lib"
-version = "0.2.0"
+version = "0.2.1"
 description = "Pythonic inversion of control targeting ports and adapters application development style"
 authors = ["kuta.0 <igor.kantorski@gmail.com>"]
 license = "BSD-3-Clause"
 readme = "README.md"
 classifiers = [
     "Development Status :: 1 - Planning",
-    "Operating System :: OS Independent",
-    "Topic :: Software Development :: Libraries",
+    "Operating System :: OS Independent",    "Topic :: Software Development :: Libraries",
     "Typing :: Typed",
 ]
 keywords = ["plugins", "adapters", "ioc", "di", "dependency", "injection"]
